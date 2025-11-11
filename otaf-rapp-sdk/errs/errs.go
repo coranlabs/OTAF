@@ -59,9 +59,21 @@ const (
 	CategoryUnknown Category = "unknown"
 )
 
+// Severity is how much attention a failure deserves.
+type Severity string
+
 const (
 	SeverityInfo     Severity = "info"
 	SeverityWarning  Severity = "warning"
 	SeverityError    Severity = "error"
 	SeverityCritical Severity = "critical"
 )
+
+var byCategory = map[Category]defaults{
+	CategoryConfig:   {SeverityCritical, http.StatusInternalServerError, false},
+	CategoryPlatform: {SeverityError, http.StatusBadGateway, true},
+	CategoryNetwork:  {SeverityWarning, http.StatusBadGateway, true},
+	CategoryData:     {SeverityWarning, http.StatusBadRequest, false},
+	CategoryInternal: {SeverityError, http.StatusInternalServerError, false},
+	CategoryUnknown:  {SeverityError, http.StatusInternalServerError, true},
+}
