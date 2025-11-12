@@ -168,3 +168,20 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Unwrap() error { return e.Cause }
+
+// Is matches on code, so a caller can test for a specific failure without
+// holding on to the value that produced it.
+func (e *Error) Is(target error) bool {
+	other, ok := target.(*Error)
+	if !ok {
+		return false
+	}
+	if other.Code != "" && e.Code != "" {
+		return other.Code == e.Code
+	}
+	return other.Category != "" && other.Category == e.Category
+}
+
+// Retryable satisfies what retry looks for, so a classified failure drives
+// retrying without anything else being told about it.
+func (e *Error) Retryable() bool { return e.retryable }
