@@ -69,6 +69,15 @@ const (
 	SeverityCritical Severity = "critical"
 )
 
+// defaults keep the common case to one call: naming the category is usually
+// enough to say how serious it is, whether to retry, and what to answer over
+// HTTP.
+type defaults struct {
+	severity  Severity
+	status    int
+	retryable bool
+}
+
 var byCategory = map[Category]defaults{
 	CategoryConfig:   {SeverityCritical, http.StatusInternalServerError, false},
 	CategoryPlatform: {SeverityError, http.StatusBadGateway, true},
@@ -76,4 +85,58 @@ var byCategory = map[Category]defaults{
 	CategoryData:     {SeverityWarning, http.StatusBadRequest, false},
 	CategoryInternal: {SeverityError, http.StatusInternalServerError, false},
 	CategoryUnknown:  {SeverityError, http.StatusInternalServerError, true},
+}
+
+// Error is a failure that knows what kind of failure it is.
+type Error struct {
+	Category Category
+	Severity Severity
+
+	// Code is a stable identifier, meant to be searched for. It outlives
+	// rewording of the message, which is what makes it useful in a ticket.
+	Code string
+
+	Message string
+	Cause   error
+
+	// Status is what to answer if this failure surfaces through an HTTP API.
+	Status int
+
+	retryable bool
+
+	// Fields carry structured detail for logs.
+	Fields map[string]any
+}
+
+// New builds a failure. Severity, status and retryability follow from the
+// category unless you say otherwise.
+func New(category Category, code, message string) *Error {
+	d, known := byCategory[category]
+	if !known {
+		category, d = CategoryUnknown, byCategory[CategoryUnknown]
+	}
+	return &Error{
+		Category:  category,
+		Severity:  d.severity,
+		Code:      code,
+		Message:   message,
+		Status:    d.status,
+		retryable: d.retryable,
+	}
+}
+
+func (e *Error) Error() string {
+	var b strings.Builder
+	if e.Code != "" {
+		b.WriteString(e.Code)
+		b.WriteString(": ")
+	}
+	b.WriteString(e.Message)
+	if e.Cause != nil {
+		if e.Message != "" {
+			b.WriteString(": ")
+		}
+		b.WriteString(e.Cause.Error())
+	}
+	return b.String()
 }
