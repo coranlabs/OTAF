@@ -245,3 +245,18 @@ type (
 	retryable   interface{ Retryable() bool }
 	fielded     interface{ ErrorFields() map[string]any }
 )
+
+// CategoryOf classifies any error. An error that says nothing about itself is
+// unknown rather than assumed harmless.
+func CategoryOf(err error) Category {
+	if err == nil {
+		return ""
+	}
+	var c categorized
+	if errors.As(err, &c) {
+		if category := Category(c.ErrorCategory()); category != "" {
+			return category
+		}
+	}
+	return CategoryUnknown
+}
