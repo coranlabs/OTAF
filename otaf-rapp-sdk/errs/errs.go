@@ -166,3 +166,5 @@ func (e *Error) Error() string {
 	}
 	return b.String()
 }
+
+func (e *Error) Unwrap() error { return e.Cause }
