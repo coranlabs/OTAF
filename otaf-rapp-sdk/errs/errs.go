@@ -218,3 +218,30 @@ func (e *Error) WithStatus(status int) *Error {
 	e.Status = status
 	return e
 }
+
+// WithField attaches structured detail, for logs rather than for control flow.
+func (e *Error) WithField(key string, value any) *Error {
+	if e.Fields == nil {
+		e.Fields = map[string]any{}
+	}
+	e.Fields[key] = value
+	return e
+}
+
+func (e *Error) WithFields(fields map[string]any) *Error {
+	for k, v := range fields {
+		e = e.WithField(k, v)
+	}
+	return e
+}
+
+// The interfaces below are how an error from any package classifies itself
+// without depending on this one. Implement whichever apply.
+type (
+	categorized interface{ ErrorCategory() string }
+	coded       interface{ ErrorCode() string }
+	severities  interface{ ErrorSeverity() string }
+	statused    interface{ HTTPStatus() int }
+	retryable   interface{ Retryable() bool }
+	fielded     interface{ ErrorFields() map[string]any }
+)
