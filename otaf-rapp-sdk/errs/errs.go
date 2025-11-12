@@ -185,3 +185,11 @@ func (e *Error) Is(target error) bool {
 // Retryable satisfies what retry looks for, so a classified failure drives
 // retrying without anything else being told about it.
 func (e *Error) Retryable() bool { return e.retryable }
+
+// ErrorCategory, ErrorCode and HTTPStatus let other packages classify their
+// own errors without importing this one.
+func (e *Error) ErrorCategory() string { return string(e.Category) }
+
+func (e *Error) ErrorCode() string     { return e.Code }
+
+func (e *Error) ErrorSeverity() string { return string(e.Severity) }
