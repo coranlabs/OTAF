@@ -125,6 +125,32 @@ func New(category Category, code, message string) *Error {
 	}
 }
 
+// Newf is New with a formatted message.
+func Newf(category Category, code, format string, args ...any) *Error {
+	return New(category, code, fmt.Sprintf(format, args...))
+}
+
+// Wrap classifies an existing failure, keeping it reachable through
+// errors.Is and errors.As.
+func Wrap(err error, category Category, code, message string) *Error {
+	if err == nil {
+		return nil
+	}
+	out := New(category, code, message)
+	out.Cause = err
+
+	// An error that already said whether it was worth retrying knows better
+	// than the category default does.
+	if stated, ok := statedRetryable(err); ok {
+		out.retryable = stated
+	}
+	return out
+}
+
+func Wrapf(err error, category Category, code, format string, args ...any) *Error {
+	return Wrap(err, category, code, fmt.Sprintf(format, args...))
+}
+
 func (e *Error) Error() string {
 	var b strings.Builder
 	if e.Code != "" {
