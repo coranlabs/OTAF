@@ -202,3 +202,19 @@ func (e *Error) Transient() *Error {
 	e.retryable = true
 	return e
 }
+
+// Permanent marks a failure as not worth retrying.
+func (e *Error) Permanent() *Error {
+	e.retryable = false
+	return e
+}
+
+func (e *Error) WithSeverity(s Severity) *Error {
+	e.Severity = s
+	return e
+}
+
+func (e *Error) WithStatus(status int) *Error {
+	e.Status = status
+	return e
+}
