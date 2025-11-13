@@ -275,3 +275,29 @@ func SeverityOf(err error) Severity {
 	}
 	return byCategory[CategoryOf(err)].severity
 }
+
+// CodeOf returns the stable identifier, or "" when the error has none.
+func CodeOf(err error) string {
+	if err == nil {
+		return ""
+	}
+	var c coded
+	if errors.As(err, &c) {
+		return c.ErrorCode()
+	}
+	return ""
+}
+
+// StatusOf is what to answer if this failure surfaces through an HTTP API.
+func StatusOf(err error) int {
+	if err == nil {
+		return http.StatusOK
+	}
+	var s statused
+	if errors.As(err, &s) {
+		if status := s.HTTPStatus(); status > 0 {
+			return status
+		}
+	}
+	return byCategory[CategoryOf(err)].status
+}
