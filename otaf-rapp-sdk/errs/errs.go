@@ -301,3 +301,25 @@ func StatusOf(err error) int {
 	}
 	return byCategory[CategoryOf(err)].status
 }
+
+// FieldsOf collects structured detail for logging.
+func FieldsOf(err error) map[string]any {
+	if err == nil {
+		return nil
+	}
+	var f fielded
+	if errors.As(err, &f) {
+		return f.ErrorFields()
+	}
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Fields
+	}
+	return nil
+}
+
+// ErrorFields exposes the attached detail through the shared interface.
+func (e *Error) ErrorFields() map[string]any { return e.Fields }
+
+// IsCategory reports whether a failure came from where you think it did.
+func IsCategory(err error, category Category) bool { return CategoryOf(err) == category }
