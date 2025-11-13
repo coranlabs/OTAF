@@ -323,3 +323,6 @@ func (e *Error) ErrorFields() map[string]any { return e.Fields }
 
 // IsCategory reports whether a failure came from where you think it did.
 func IsCategory(err error, category Category) bool { return CategoryOf(err) == category }
+
+// IsCritical marks a failure someone should be told about now.
+func IsCritical(err error) bool { return SeverityOf(err) == SeverityCritical }
