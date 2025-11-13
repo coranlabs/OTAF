@@ -361,3 +361,21 @@ func LogFields(err error) map[string]any {
 	}
 	return out
 }
+
+// Categories lists the vocabulary, for anything that needs to enumerate it.
+func Categories() []Category {
+	out := make([]Category, 0, len(byCategory))
+	for category := range byCategory {
+		out = append(out, category)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func statedRetryable(err error) (bool, bool) {
+	var r retryable
+	if errors.As(err, &r) {
+		return r.Retryable(), true
+	}
+	return false, false
+}
