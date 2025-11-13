@@ -326,3 +326,38 @@ func IsCategory(err error, category Category) bool { return CategoryOf(err) == c
 
 // IsCritical marks a failure someone should be told about now.
 func IsCritical(err error) bool { return SeverityOf(err) == SeverityCritical }
+
+// HasCode reports whether this failure, or anything it wraps, carries a code.
+func HasCode(err error, code string) bool {
+	if code == "" {
+		return false
+	}
+	for err != nil {
+		if CodeOf(err) == code {
+			return true
+		}
+		err = errors.Unwrap(err)
+	}
+	return false
+}
+
+// LogFields is what to hand a structured logger: the classification plus
+// whatever detail the failure carried.
+func LogFields(err error) map[string]any {
+	if err == nil {
+		return nil
+	}
+	out := map[string]any{
+		"category": string(CategoryOf(err)),
+		"severity": string(SeverityOf(err)),
+	}
+	if code := CodeOf(err); code != "" {
+		out["code"] = code
+	}
+	for k, v := range FieldsOf(err) {
+		if _, taken := out[k]; !taken {
+			out[k] = v
+		}
+	}
+	return out
+}
