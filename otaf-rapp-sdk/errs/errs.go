@@ -260,3 +260,18 @@ func CategoryOf(err error) Category {
 	}
 	return CategoryUnknown
 }
+
+// SeverityOf reports how much attention a failure deserves, from what it says
+// about itself or from its category.
+func SeverityOf(err error) Severity {
+	if err == nil {
+		return ""
+	}
+	var s severities
+	if errors.As(err, &s) {
+		if severity := Severity(s.ErrorSeverity()); severity != "" {
+			return severity
+		}
+	}
+	return byCategory[CategoryOf(err)].severity
+}
