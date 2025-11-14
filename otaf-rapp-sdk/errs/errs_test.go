@@ -134,4 +134,29 @@ func TestHasCodeSearchesTheChain(t *testing.T) {
 	}
 }
 
+// An error that already stated its retryability knows better than the category
+// default does.
+func TestWrapKeepsAStatedRetryability(t *testing.T) {
+	permanent := &stated{retryable: false}
+
+	err := Wrap(permanent, CategoryPlatform, "CODE", "message")
+	if err.Retryable() {
+		t.Error("wrapping a permanent failure as a platform one should stay permanent")
+	}
+
+	transient := &stated{retryable: true}
+	if !Wrap(transient, CategoryData, "CODE", "message").Retryable() {
+		t.Error("wrapping a transient failure as data should stay transient")
+	}
+}
+
+func TestTransientAndPermanentOverrideTheDefault(t *testing.T) {
+	if !New(CategoryData, "C", "m").Transient().Retryable() {
+		t.Error("Transient should override the category default")
+	}
+	if New(CategoryPlatform, "C", "m").Permanent().Retryable() {
+		t.Error("Permanent should override the category default")
+	}
+}
+
 type stated struct{ retryable bool }
