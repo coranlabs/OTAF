@@ -94,4 +94,44 @@ func TestWrappedCauseStaysReachable(t *testing.T) {
 	}
 }
 
+func TestWrapNilIsNil(t *testing.T) {
+	if err := Wrap(nil, CategoryData, "CODE", "message"); err != nil {
+		t.Errorf("wrapping nothing should give nothing, got %v", err)
+	}
+}
+
+// A caller should be able to test for a specific failure without holding the
+// value that produced it.
+func TestIsMatchesOnCode(t *testing.T) {
+	err := New(CategoryData, "SCHEMA_MISMATCH", "does not fit the schema")
+
+	if !errors.Is(err, New(CategoryData, "SCHEMA_MISMATCH", "")) {
+		t.Error("errors.Is should match on code")
+	}
+	if errors.Is(err, New(CategoryData, "OTHER_CODE", "")) {
+		t.Error("a different code should not match")
+	}
+	if !errors.Is(err, New(CategoryData, "", "")) {
+		t.Error("with no code to compare, the category should match")
+	}
+}
+
+func TestHasCodeSearchesTheChain(t *testing.T) {
+	inner := New(CategoryData, "INNER", "inner problem")
+	outer := Wrap(inner, CategoryPlatform, "OUTER", "outer problem")
+
+	if !HasCode(outer, "OUTER") {
+		t.Error("the outer code should be found")
+	}
+	if !HasCode(outer, "INNER") {
+		t.Error("a wrapped code should be found")
+	}
+	if HasCode(outer, "ABSENT") {
+		t.Error("a code that is not there should not be found")
+	}
+	if HasCode(outer, "") {
+		t.Error("an empty code should never match")
+	}
+}
+
 type stated struct{ retryable bool }
