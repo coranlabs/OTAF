@@ -21,4 +21,41 @@ import (
 	"testing"
 )
 
+func TestCategoryDrivesTheDefaults(t *testing.T) {
+	cases := map[Category]struct {
+		severity  Severity
+		status    int
+		retryable bool
+	}{
+		CategoryConfig:   {SeverityCritical, http.StatusInternalServerError, false},
+		CategoryPlatform: {SeverityError, http.StatusBadGateway, true},
+		CategoryNetwork:  {SeverityWarning, http.StatusBadGateway, true},
+		CategoryData:     {SeverityWarning, http.StatusBadRequest, false},
+		CategoryInternal: {SeverityError, http.StatusInternalServerError, false},
+	}
+
+	for category, want := range cases {
+		t.Run(string(category), func(t *testing.T) {
+			err := New(category, "CODE", "something went wrong")
+
+			if err.Severity != want.severity {
+				t.Errorf("severity = %s, want %s", err.Severity, want.severity)
+			}
+			if err.Status != want.status {
+				t.Errorf("status = %d, want %d", err.Status, want.status)
+			}
+			if err.Retryable() != want.retryable {
+				t.Errorf("retryable = %v, want %v", err.Retryable(), want.retryable)
+			}
+		})
+	}
+}
+
+func TestUnknownCategoryFallsBack(t *testing.T) {
+	err := New(Category("invented"), "CODE", "message")
+	if err.Category != CategoryUnknown {
+		t.Errorf("category = %s, want %s", err.Category, CategoryUnknown)
+	}
+}
+
 type stated struct{ retryable bool }
