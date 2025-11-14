@@ -189,4 +189,36 @@ func TestClassifyingNil(t *testing.T) {
 	}
 }
 
+// An error from any package classifies itself by implementing the small
+// interfaces, without importing this one.
+func TestForeignErrorsCanClassifyThemselves(t *testing.T) {
+	err := &foreign{category: "platform", code: "A1_REJECTED", status: http.StatusBadRequest}
+
+	if got := CategoryOf(err); got != CategoryPlatform {
+		t.Errorf("category = %s, want platform", got)
+	}
+	if got := CodeOf(err); got != "A1_REJECTED" {
+		t.Errorf("code = %q", got)
+	}
+	if got := StatusOf(err); got != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", got)
+	}
+	// It said nothing about severity, so the category decides.
+	if got := SeverityOf(err); got != SeverityError {
+		t.Errorf("severity = %s, want the platform default", got)
+	}
+}
+
+func TestClassificationSeesThroughWrapping(t *testing.T) {
+	foreign := &foreign{category: "network", code: "O1_UNREACHABLE"}
+	wrapped := fmt.Errorf("while applying the decision: %w", foreign)
+
+	if got := CategoryOf(wrapped); got != CategoryNetwork {
+		t.Errorf("category = %s, want network through the wrapper", got)
+	}
+	if got := CodeOf(wrapped); got != "O1_UNREACHABLE" {
+		t.Errorf("code = %q, want it found through the wrapper", got)
+	}
+}
+
 type stated struct{ retryable bool }
