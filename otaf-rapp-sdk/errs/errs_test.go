@@ -58,4 +58,40 @@ func TestUnknownCategoryFallsBack(t *testing.T) {
 	}
 }
 
+func TestErrorText(t *testing.T) {
+	cause := errors.New("connection refused")
+
+	cases := map[string]struct {
+		err  *Error
+		want string
+	}{
+		"code and message": {New(CategoryData, "BAD_INPUT", "payload is malformed"),
+			"BAD_INPUT: payload is malformed"},
+		"wrapped": {Wrap(cause, CategoryNetwork, "O1_UNREACHABLE", "could not reach the node"),
+			"O1_UNREACHABLE: could not reach the node: connection refused"},
+		"no code": {New(CategoryInternal, "", "something broke"), "something broke"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := tc.err.Error(); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// Classifying a failure must not hide what caused it.
+func TestWrappedCauseStaysReachable(t *testing.T) {
+	sentinel := errors.New("the real problem")
+	err := Wrap(sentinel, CategoryPlatform, "PLATFORM_DOWN", "policy service refused")
+
+	if !errors.Is(err, sentinel) {
+		t.Error("the cause should stay reachable through errors.Is")
+	}
+	if !errors.Is(errors.Unwrap(err), sentinel) {
+		t.Error("Unwrap should return the cause")
+	}
+}
+
 type stated struct{ retryable bool }
