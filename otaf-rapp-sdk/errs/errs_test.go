@@ -159,4 +159,34 @@ func TestTransientAndPermanentOverrideTheDefault(t *testing.T) {
 	}
 }
 
+// Classification has to work on errors that know nothing about this package.
+func TestClassifyingForeignErrors(t *testing.T) {
+	plain := errors.New("something happened")
+
+	if got := CategoryOf(plain); got != CategoryUnknown {
+		t.Errorf("category = %s, want %s", got, CategoryUnknown)
+	}
+	if got := SeverityOf(plain); got != SeverityError {
+		t.Errorf("severity = %s, want %s", got, SeverityError)
+	}
+	if got := StatusOf(plain); got != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", got)
+	}
+	if got := CodeOf(plain); got != "" {
+		t.Errorf("code = %q, want empty", got)
+	}
+}
+
+func TestClassifyingNil(t *testing.T) {
+	if CategoryOf(nil) != "" {
+		t.Error("no error has no category")
+	}
+	if StatusOf(nil) != http.StatusOK {
+		t.Error("no error is a success")
+	}
+	if IsCritical(nil) {
+		t.Error("no error is not critical")
+	}
+}
+
 type stated struct{ retryable bool }
