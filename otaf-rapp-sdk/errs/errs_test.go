@@ -290,4 +290,18 @@ func TestCategoriesAreEnumerable(t *testing.T) {
 	}
 }
 
+func TestNewfAndWrapf(t *testing.T) {
+	if got := Newf(CategoryData, "C", "cell %s is %d%% loaded", "c1", 90).Error(); got != "C: cell c1 is 90% loaded" {
+		t.Errorf("got %q", got)
+	}
+	cause := errors.New("boom")
+	if got := Wrapf(cause, CategoryData, "C", "on %s", "c1").Error(); got != "C: on c1: boom" {
+		t.Errorf("got %q", got)
+	}
+}
+
 type stated struct{ retryable bool }
+
+func (s *stated) Error() string   { return "stated" }
+
+func (f *foreign) Error() string         { return "foreign failure" }
