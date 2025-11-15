@@ -221,4 +221,29 @@ func TestClassificationSeesThroughWrapping(t *testing.T) {
 	}
 }
 
+func TestIsCategoryAndIsCritical(t *testing.T) {
+	misconfigured := New(CategoryConfig, "CONFIG_MISSING", "no config file")
+
+	if !IsCategory(misconfigured, CategoryConfig) {
+		t.Error("a config failure should classify as config")
+	}
+	if !IsCritical(misconfigured) {
+		t.Error("a misconfigured rApp is critical: it cannot work until someone fixes it")
+	}
+	if IsCritical(New(CategoryNetwork, "C", "m")) {
+		t.Error("a node refusing one request is not critical")
+	}
+}
+
+func TestFieldsCarryStructuredDetail(t *testing.T) {
+	err := New(CategoryNetwork, "O1_REJECTED", "node refused").
+		WithField("node", "gnb-1").
+		WithFields(map[string]any{"attempt": 3})
+
+	fields := FieldsOf(err)
+	if fields["node"] != "gnb-1" || fields["attempt"] != 3 {
+		t.Errorf("fields = %v, want the attached detail", fields)
+	}
+}
+
 type stated struct{ retryable bool }
