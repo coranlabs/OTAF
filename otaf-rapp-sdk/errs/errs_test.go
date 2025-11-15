@@ -246,4 +246,48 @@ func TestFieldsCarryStructuredDetail(t *testing.T) {
 	}
 }
 
+// What gets handed to a structured logger should be enough to find the failure
+// again without reading its text.
+func TestLogFields(t *testing.T) {
+	err := New(CategoryPlatform, "A1_REJECTED", "policy refused").WithField("policy", "p1")
+
+	fields := LogFields(err)
+	if fields["category"] != "platform" {
+		t.Errorf("category = %v", fields["category"])
+	}
+	if fields["severity"] != "error" {
+		t.Errorf("severity = %v", fields["severity"])
+	}
+	if fields["code"] != "A1_REJECTED" {
+		t.Errorf("code = %v", fields["code"])
+	}
+	if fields["policy"] != "p1" {
+		t.Errorf("attached detail should survive, got %v", fields)
+	}
+	if LogFields(nil) != nil {
+		t.Error("no error has no fields")
+	}
+}
+
+// The classification must not be overridden by the caller's own detail.
+func TestLogFieldsDoNotLetDetailShadowTheClassification(t *testing.T) {
+	err := New(CategoryData, "BAD", "message").WithField("category", "pretend")
+
+	if LogFields(err)["category"] != "data" {
+		t.Error("attached detail must not overwrite the classification")
+	}
+}
+
+func TestCategoriesAreEnumerable(t *testing.T) {
+	got := Categories()
+	if len(got) < 5 {
+		t.Fatalf("categories = %v, want the full vocabulary", got)
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i-1] > got[i] {
+			t.Error("categories should come back sorted")
+		}
+	}
+}
+
 type stated struct{ retryable bool }
