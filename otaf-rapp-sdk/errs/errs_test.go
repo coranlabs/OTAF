@@ -304,4 +304,13 @@ type stated struct{ retryable bool }
 
 func (s *stated) Error() string   { return "stated" }
 
+func (s *stated) Retryable() bool { return s.retryable }
+
+// foreign stands in for an error from a package that does not import this one.
+type foreign struct {
+	category string
+	code     string
+	status   int
+}
+
 func (f *foreign) Error() string         { return "foreign failure" }
