@@ -318,3 +318,5 @@ func (f *foreign) Error() string         { return "foreign failure" }
 func (f *foreign) ErrorCategory() string { return f.category }
 
 func (f *foreign) ErrorCode() string     { return f.code }
+
+func (f *foreign) HTTPStatus() int       { return f.status }
