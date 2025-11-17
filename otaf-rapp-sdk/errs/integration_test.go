@@ -87,3 +87,84 @@ func TestPlatformClientErrorsClassify(t *testing.T) {
 		t.Error("one refused policy is not critical")
 	}
 }
+
+func TestConsumerErrorsClassify(t *testing.T) {
+	srv := serverReturning(t, http.StatusNotFound, `{"detail":"Information type not found"}`)
+
+	consumer, err := r1.NewConsumer(r1.ConsumerConfig{
+		Endpoint: srv.URL, Owner: "test-rapp", SelfURL: "http://test-rapp:8080",
+	}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	failure := consumer.Subscribe(context.Background(), r1.Subscription{
+		JobID: "job-1", InfoTypeID: "absent", DeliverTo: "/data",
+	})
+	if failure == nil {
+		t.Fatal("expected the subscription to be refused")
+	}
+
+	if got := errs.CategoryOf(failure); got != errs.CategoryPlatform {
+		t.Errorf("category = %s, want platform", got)
+	}
+	if got := errs.CodeOf(failure); got != "R1_NOT_FOUND" {
+		t.Errorf("code = %q, want R1_NOT_FOUND", got)
+	}
+}
+
+// Reaching the managed network is a different kind of failure from a platform
+// service refusing, and the taxonomy has to keep them apart.
+func TestControllerErrorsClassifyAsNetwork(t *testing.T) {
+	srv := serverReturning(t, http.StatusConflict, "value out of range")
+
+	client, err := sdnr.New(sdnr.Config{
+		Endpoint: srv.URL, NodeID: "gnb-1", Username: "admin",
+	}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	failure := client.Patch(context.Background(), client.MountPath("x"), []byte(`{}`))
+	if failure == nil {
+		t.Fatal("expected the write to be refused")
+	}
+
+	if got := errs.CategoryOf(failure); got != errs.CategoryNetwork {
+		t.Errorf("category = %s, want network", got)
+	}
+	if got := errs.CodeOf(failure); got != "O1_CONFLICT" {
+		t.Errorf("code = %q, want O1_CONFLICT", got)
+	}
+	if !sdnr.IsRejected(failure) {
+		t.Error("a 409 is the node refusing, not the node being away")
+	}
+	if sdnr.IsUnreachable(failure) {
+		t.Error("a request that got an answer was not unreachable")
+	}
+}
+
+// A controller that never answered is a different problem, and worth retrying.
+func TestUnreachableControllerIsRetryable(t *testing.T) {
+	client, err := sdnr.New(sdnr.Config{
+		Endpoint: "http://127.0.0.1:1", NodeID: "gnb-1", Timeout: 100 * time.Millisecond,
+	}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	failure := client.Ping(context.Background())
+	if failure == nil {
+		t.Fatal("expected the ping to fail")
+	}
+
+	if !sdnr.IsUnreachable(failure) {
+		t.Error("a request that never got an answer should classify as unreachable")
+	}
+	if got := errs.CodeOf(failure); got != "O1_UNREACHABLE" {
+		t.Errorf("code = %q, want O1_UNREACHABLE", got)
+	}
+	if !retry.Retryable(failure) {
+		t.Error("an unreachable controller is worth another attempt")
+	}
+}
