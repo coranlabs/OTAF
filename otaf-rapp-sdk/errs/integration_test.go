@@ -317,3 +317,57 @@ func TestCallerMistakesClassifyAsInternal(t *testing.T) {
 		})
 	}
 }
+
+func TestBadEnvironmentValueIsAConfigFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rapp.yaml")
+	if err := os.WriteFile(path, []byte("rapp:\n  name: probe\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HTTP_PORT", "8080")
+
+	var settings struct {
+		Rapp    config.Rapp   `yaml:"rapp"`
+		Timeout time.Duration `yaml:"timeout" env:"TEST_ERRS_TIMEOUT"`
+	}
+	t.Setenv("TEST_ERRS_TIMEOUT", "not-a-duration")
+
+	failure := config.Load(&settings, path)
+	if failure == nil {
+		t.Fatal("expected an unusable environment value to fail")
+	}
+
+	if got := errs.CategoryOf(failure); got != errs.CategoryConfig {
+		t.Errorf("category = %s, want config", got)
+	}
+	fields := errs.FieldsOf(failure)
+	if fields["variable"] != "TEST_ERRS_TIMEOUT" {
+		t.Errorf("fields = %v, want the offending variable named", fields)
+	}
+}
+
+// Classification has to survive an rApp adding its own context on the way up.
+func TestClassificationSurvivesRewrapping(t *testing.T) {
+	srv := serverReturning(t, http.StatusServiceUnavailable, "")
+
+	client, err := a1.New(a1.Config{
+		Endpoint: srv.URL, ServiceID: "test-rapp",
+	}, quietLogger(), a1.WithRetry(retry.None()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	failure := client.PutPolicy(context.Background(), a1.Policy{
+		ID: "p1", RicID: "ric-1", PolicyTypeID: "20100",
+	})
+	wrapped := fmt.Errorf("while relieving cell-1: %w", failure)
+
+	if got := errs.CategoryOf(wrapped); got != errs.CategoryPlatform {
+		t.Errorf("category = %s, want platform through the wrapper", got)
+	}
+	if got := errs.CodeOf(wrapped); got != "A1_UNAVAILABLE" {
+		t.Errorf("code = %q, want it found through the wrapper", got)
+	}
+	if !retry.Retryable(wrapped) {
+		t.Error("an unavailable service is worth another attempt, wrapper or not")
+	}
+}
