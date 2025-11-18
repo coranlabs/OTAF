@@ -195,3 +195,125 @@ func TestConfigErrorsAreCriticalAndPermanent(t *testing.T) {
 		t.Errorf("code = %q, want CONFIG_MISSING", errs.CodeOf(failure))
 	}
 }
+
+// Every way an rApp can be set up wrong has to classify the same. They all
+// surface through the same path at startup, so one of them reporting
+// "unknown" would make an alert on misconfiguration silently incomplete.
+func TestEveryStartupMisconfigurationClassifiesTheSame(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "absent.yaml")
+
+	starts := map[string]func() error{
+		"no config file": func() error {
+			var settings struct {
+				Rapp config.Rapp `yaml:"rapp"`
+			}
+			return config.Load(&settings, missing)
+		},
+		"no HTTP port": func() error {
+			_, err := app.New(config.Rapp{Name: "demo", Version: "1"}, app.WithLogger(quietLogger()))
+			return err
+		},
+		"no controller endpoint": func() error {
+			_, err := sdnr.New(sdnr.Config{}, quietLogger())
+			return err
+		},
+		"no A1 service id": func() error {
+			_, err := a1.New(a1.Config{Endpoint: "http://pms"}, quietLogger())
+			return err
+		},
+		"no consumer owner": func() error {
+			_, err := r1.NewConsumer(r1.ConsumerConfig{
+				Endpoint: "http://ics", SelfURL: "http://me",
+			}, quietLogger())
+			return err
+		},
+		"no consumer self URL": func() error {
+			_, err := r1.NewConsumer(r1.ConsumerConfig{
+				Endpoint: "http://ics", Owner: "me",
+			}, quietLogger())
+			return err
+		},
+		"store without a bucket": func() error {
+			_, err := influx.New(influx.Config{URL: "http://influx", Org: "o"}, quietLogger())
+			return err
+		},
+		"store without an org": func() error {
+			_, err := influx.New(influx.Config{URL: "http://influx", Bucket: "b"}, quietLogger())
+			return err
+		},
+		"no kafka brokers": func() error {
+			_, err := kafkasrc.New(kafkasrc.Config{Topic: "t"}, quietLogger())
+			return err
+		},
+		"no kafka topic": func() error {
+			_, err := kafkasrc.New(kafkasrc.Config{Brokers: []string{"b:9092"}}, quietLogger())
+			return err
+		},
+		"malformed operator account": func() error {
+			_, err := auth.NewGuard("operator:not-a-bcrypt-hash", quietLogger())
+			return err
+		},
+	}
+
+	for name, start := range starts {
+		t.Run(name, func(t *testing.T) {
+			err := start()
+			if err == nil {
+				t.Fatal("expected this to be refused at startup")
+			}
+
+			if got := errs.CategoryOf(err); got != errs.CategoryConfig {
+				t.Errorf("category = %s, want config", got)
+			}
+			if !errs.IsCritical(err) {
+				t.Error("a misconfigured rApp cannot work until someone fixes it")
+			}
+			if retry.Retryable(err) {
+				t.Error("retrying will not change the configuration")
+			}
+			if errs.CodeOf(err) == "" {
+				t.Error("the failure should carry a code an operator can search for")
+			}
+			if errs.StatusOf(err) != http.StatusInternalServerError {
+				t.Errorf("status = %d, want 500", errs.StatusOf(err))
+			}
+		})
+	}
+}
+
+// A caller passing an incomplete argument is a bug in the rApp, not a
+// deployment that was set up wrong, and the two want different attention.
+func TestCallerMistakesClassifyAsInternal(t *testing.T) {
+	client, err := a1.New(a1.Config{Endpoint: "http://pms", ServiceID: "s"}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mistakes := map[string]error{
+		"policy with no id":  client.PutPolicy(context.Background(), a1.Policy{RicID: "ric-1"}),
+		"policy with no ric": client.PutPolicy(context.Background(), a1.Policy{ID: "p1"}),
+	}
+
+	consumer, err := r1.NewConsumer(r1.ConsumerConfig{
+		Endpoint: "http://ics", Owner: "me", SelfURL: "http://me",
+	}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mistakes["subscription with no job id"] = consumer.Subscribe(context.Background(),
+		r1.Subscription{InfoTypeID: "t", DeliverTo: "/data"})
+
+	for name, err := range mistakes {
+		t.Run(name, func(t *testing.T) {
+			if err == nil {
+				t.Fatal("expected this to be refused")
+			}
+			if got := errs.CategoryOf(err); got != errs.CategoryInternal {
+				t.Errorf("category = %s, want internal", got)
+			}
+			if retry.Retryable(err) {
+				t.Error("retrying will not supply the missing field")
+			}
+		})
+	}
+}
