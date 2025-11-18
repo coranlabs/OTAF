@@ -168,3 +168,30 @@ func TestUnreachableControllerIsRetryable(t *testing.T) {
 		t.Error("an unreachable controller is worth another attempt")
 	}
 }
+
+// A misconfigured rApp cannot work until a person fixes it, and nothing about
+// that changes on a retry.
+func TestConfigErrorsAreCriticalAndPermanent(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "absent.yaml")
+
+	var settings struct {
+		Rapp config.Rapp `yaml:"rapp"`
+	}
+	failure := config.Load(&settings, missing)
+	if failure == nil {
+		t.Fatal("expected loading a missing config to fail")
+	}
+
+	if got := errs.CategoryOf(failure); got != errs.CategoryConfig {
+		t.Errorf("category = %s, want config", got)
+	}
+	if !errs.IsCritical(failure) {
+		t.Error("a misconfigured rApp is critical")
+	}
+	if retry.Retryable(failure) {
+		t.Error("retrying will not make the file appear")
+	}
+	if !errs.HasCode(failure, "CONFIG_MISSING") {
+		t.Errorf("code = %q, want CONFIG_MISSING", errs.CodeOf(failure))
+	}
+}
