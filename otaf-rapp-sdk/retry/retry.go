@@ -42,4 +42,35 @@ func Default() Policy {
 	return Policy{Attempts: 4, Initial: 200 * time.Millisecond, Max: 5 * time.Second, Multiplier: 2, Jitter: 0.3}
 }
 
+// Patient suits something known to be slow to come back, such as a service
+// still starting up.
+func Patient() Policy {
+	return Policy{Attempts: 6, Initial: time.Second, Max: 30 * time.Second, Multiplier: 2, Jitter: 0.3}
+}
+
+// None disables retrying, which is what a non-idempotent call wants.
+func None() Policy { return Policy{Attempts: 1} }
+
+func (p Policy) normalise() Policy {
+	if p.Attempts < 1 {
+		p.Attempts = 1
+	}
+	if p.Initial <= 0 {
+		p.Initial = 100 * time.Millisecond
+	}
+	if p.Multiplier < 1 {
+		p.Multiplier = 2
+	}
+	if p.Max <= 0 {
+		p.Max = 30 * time.Second
+	}
+	if p.Jitter < 0 {
+		p.Jitter = 0
+	}
+	if p.Jitter > 1 {
+		p.Jitter = 1
+	}
+	return p
+}
+
 type permanentError struct{ err error }
