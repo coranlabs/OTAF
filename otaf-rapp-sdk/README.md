@@ -11,6 +11,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | Package | Purpose |
 | --- | --- |
 | `errs` | Failure categories, from which severity, retryability and HTTP status are derived |
+| `log` | Log levels determined by failure severity |
 
 ## Licence
 
