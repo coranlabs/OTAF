@@ -49,3 +49,24 @@ func New(level, format string) *logrus.Logger {
 func Failure(logger *logrus.Logger, err error, msg string) {
 	FailureWith(logger, err, msg, nil)
 }
+
+// FailureWith is Failure plus context of the caller's own.
+func FailureWith(logger *logrus.Logger, err error, msg string, fields map[string]any) {
+	if logger == nil || err == nil {
+		return
+	}
+
+	entry := logger.WithFields(logrus.Fields(errs.LogFields(err))).WithError(err)
+	if len(fields) > 0 {
+		entry = entry.WithFields(logrus.Fields(fields))
+	}
+
+	switch errs.SeverityOf(err) {
+	case errs.SeverityInfo:
+		entry.Info(msg)
+	case errs.SeverityWarning:
+		entry.Warn(msg)
+	default:
+		entry.Error(msg)
+	}
+}
