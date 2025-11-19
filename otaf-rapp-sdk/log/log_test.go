@@ -69,3 +69,48 @@ func TestSeverityPicksTheLevel(t *testing.T) {
 		})
 	}
 }
+
+// A library that called Fatal would take the decision to stop away from the
+// rApp, which is the only thing that knows whether it can carry on.
+func TestCriticalDoesNotKillTheProcess(t *testing.T) {
+	logger, read := capture(t)
+
+	misconfigured := errs.New(errs.CategoryConfig, "CONFIG_MISSING", "no config file")
+	if !errs.IsCritical(misconfigured) {
+		t.Fatal("expected a config failure to be critical")
+	}
+
+	Failure(logger, misconfigured, "cannot start")
+
+	if record := read(); record["level"] != "error" {
+		t.Errorf("level = %v, want error rather than fatal", record["level"])
+	}
+}
+
+func TestClassificationIsAttached(t *testing.T) {
+	logger, read := capture(t)
+
+	failure := errs.New(errs.CategoryPlatform, "A1_REJECTED", "policy refused").
+		WithField("policy", "p1")
+	Failure(logger, failure, "could not apply the decision")
+
+	record := read()
+	if record["category"] != "platform" {
+		t.Errorf("category = %v", record["category"])
+	}
+	if record["code"] != "A1_REJECTED" {
+		t.Errorf("code = %v", record["code"])
+	}
+	if record["severity"] != "error" {
+		t.Errorf("severity = %v", record["severity"])
+	}
+	if record["policy"] != "p1" {
+		t.Errorf("attached detail should survive, got %v", record)
+	}
+	if record["error"] == nil {
+		t.Error("the failure itself should still be in the record")
+	}
+	if record["msg"] != "could not apply the decision" {
+		t.Errorf("msg = %v", record["msg"])
+	}
+}
