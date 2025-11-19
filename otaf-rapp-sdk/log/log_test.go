@@ -114,3 +114,28 @@ func TestClassificationIsAttached(t *testing.T) {
 		t.Errorf("msg = %v", record["msg"])
 	}
 }
+
+func TestCallerFieldsAreAdded(t *testing.T) {
+	logger, read := capture(t)
+
+	FailureWith(logger, errs.New(errs.CategoryData, "BAD", "malformed"),
+		"could not read the report", map[string]any{"source": "http/data"})
+
+	if record := read(); record["source"] != "http/data" {
+		t.Errorf("source = %v, want the caller's field", record["source"])
+	}
+}
+
+// An unclassified failure must still be logged, not swallowed.
+func TestUnclassifiedFailureStillLogs(t *testing.T) {
+	logger, read := capture(t)
+	Failure(logger, errors.New("something happened"), "it failed")
+
+	record := read()
+	if record["level"] != "error" {
+		t.Errorf("level = %v, want error", record["level"])
+	}
+	if record["category"] != "unknown" {
+		t.Errorf("category = %v, want unknown", record["category"])
+	}
+}
