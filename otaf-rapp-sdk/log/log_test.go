@@ -139,3 +139,14 @@ func TestUnclassifiedFailureStillLogs(t *testing.T) {
 		t.Errorf("category = %v, want unknown", record["category"])
 	}
 }
+
+func TestNothingToLogIsANoOp(t *testing.T) {
+	logger, read := capture(t)
+
+	Failure(logger, nil, "should not appear")
+	if read() != nil {
+		t.Error("no error should produce no log line")
+	}
+
+	Failure(nil, errors.New("x"), "no logger") // must not panic
+}
