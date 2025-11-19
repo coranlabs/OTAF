@@ -38,3 +38,14 @@ func New(level, format string) *logrus.Logger {
 	}
 	return l
 }
+
+// Failure records a failure at the level its severity calls for, with the
+// classification attached, so it can be found again without anyone reading the
+// message.
+//
+// A critical failure is still logged at error level. A library that killed the
+// process would take that decision away from the rApp, which is the only thing
+// that knows whether it can carry on.
+func Failure(logger *logrus.Logger, err error, msg string) {
+	FailureWith(logger, err, msg, nil)
+}
