@@ -37,4 +37,9 @@ type Policy struct {
 	Jitter float64
 }
 
+// Default suits a call to a platform service over the cluster network.
+func Default() Policy {
+	return Policy{Attempts: 4, Initial: 200 * time.Millisecond, Max: 5 * time.Second, Multiplier: 2, Jitter: 0.3}
+}
+
 type permanentError struct{ err error }
