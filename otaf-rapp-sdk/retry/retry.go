@@ -148,3 +148,55 @@ func (e *ExhaustedError) Error() string {
 }
 
 func (e *ExhaustedError) Unwrap() error { return e.Err }
+
+// Do calls fn until it succeeds, gives a permanent error, runs out of
+// attempts, or the context ends.
+func Do(ctx context.Context, p Policy, fn func(ctx context.Context, attempt int) error) error {
+	p = p.normalise()
+
+	var last error
+	for attempt := 1; attempt <= p.Attempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			if last == nil {
+				return err
+			}
+			return &ExhaustedError{Attempts: attempt - 1, Err: last}
+		}
+
+		last = fn(ctx, attempt)
+		if last == nil {
+			return nil
+		}
+		if !Retryable(last) {
+			return last
+		}
+		if attempt == p.Attempts {
+			break
+		}
+
+		timer := time.NewTimer(p.Backoff(attempt))
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return &ExhaustedError{Attempts: attempt, Err: last}
+		}
+	}
+
+	return &ExhaustedError{Attempts: p.Attempts, Err: last}
+}
+
+// DoValue is Do for work that produces a result.
+func DoValue[T any](ctx context.Context, p Policy, fn func(ctx context.Context, attempt int) (T, error)) (T, error) {
+	var out T
+	err := Do(ctx, p, func(ctx context.Context, attempt int) error {
+		var innerErr error
+		out, innerErr = fn(ctx, attempt)
+		return innerErr
+	})
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return out, nil
+}
