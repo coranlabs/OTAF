@@ -123,3 +123,21 @@ func Retryable(err error) bool {
 }
 
 type permanentError struct{ err error }
+
+func (e *permanentError) Error() string { return e.err.Error() }
+
+func (e *permanentError) Unwrap() error { return e.err }
+
+// Permanent marks an error as not worth retrying, whatever it otherwise says.
+func Permanent(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &permanentError{err: err}
+}
+
+func (e *ExhaustedError) Error() string {
+	return fmt.Sprintf("gave up after %d attempt(s): %v", e.Attempts, e.Err)
+}
+
+func (e *ExhaustedError) Unwrap() error { return e.Err }
