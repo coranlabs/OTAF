@@ -73,4 +73,53 @@ func (p Policy) normalise() Policy {
 	return p
 }
 
+// Backoff is the delay before the given attempt, counting the first try as 1.
+func (p Policy) Backoff(attempt int) time.Duration {
+	p = p.normalise()
+	if attempt < 1 {
+		attempt = 1
+	}
+
+	delay := float64(p.Initial)
+	for i := 1; i < attempt; i++ {
+		delay *= p.Multiplier
+		if delay >= float64(p.Max) {
+			delay = float64(p.Max)
+			break
+		}
+	}
+
+	if p.Jitter > 0 {
+		spread := delay * p.Jitter
+		delay += (rand.Float64()*2 - 1) * spread
+	}
+	if delay < 0 {
+		delay = 0
+	}
+	return time.Duration(delay)
+}
+
+// A retryable error says for itself whether trying again could help. Errors
+// that say nothing are retried, since a bare network failure usually is worth
+// another go.
+type retryable interface {
+	Retryable() bool
+}
+
+// Retryable reports whether err is worth another attempt.
+func Retryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	var permanent *permanentError
+	if errors.As(err, &permanent) {
+		return false
+	}
+	var r retryable
+	if errors.As(err, &r) {
+		return r.Retryable()
+	}
+	return true
+}
+
 type permanentError struct{ err error }
