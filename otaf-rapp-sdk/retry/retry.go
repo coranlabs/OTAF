@@ -136,6 +136,13 @@ func Permanent(err error) error {
 	return &permanentError{err: err}
 }
 
+// ExhaustedError reports that every attempt failed. It unwraps to the last
+// failure, so errors.Is and errors.As still reach the real cause.
+type ExhaustedError struct {
+	Attempts int
+	Err      error
+}
+
 func (e *ExhaustedError) Error() string {
 	return fmt.Sprintf("gave up after %d attempt(s): %v", e.Attempts, e.Err)
 }
