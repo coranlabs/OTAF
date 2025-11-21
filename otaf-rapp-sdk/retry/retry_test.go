@@ -85,3 +85,55 @@ func TestGivesUpAfterTheLastAttempt(t *testing.T) {
 		t.Errorf("expected an exhausted error naming 4 attempts, got %v", err)
 	}
 }
+
+// Retrying a request the service refused on its own merits only wastes time.
+func TestPermanentErrorStopsImmediately(t *testing.T) {
+	var calls int
+	err := Do(context.Background(), fast(), func(context.Context, int) error {
+		calls++
+		return Permanent(errors.New("malformed"))
+	})
+
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1", calls)
+	}
+	if err == nil {
+		t.Fatal("expected the error to be returned")
+	}
+	var exhausted *ExhaustedError
+	if errors.As(err, &exhausted) {
+		t.Error("a permanent failure is not an exhausted retry")
+	}
+}
+
+func TestErrorsDecideForThemselves(t *testing.T) {
+	cases := map[string]struct {
+		status    int
+		wantCalls int
+	}{
+		"server error is retried":     {503, 4},
+		"client error is not retried": {400, 1},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var calls int
+			_ = Do(context.Background(), fast(), func(context.Context, int) error {
+				calls++
+				return &statusError{status: tc.status}
+			})
+			if calls != tc.wantCalls {
+				t.Errorf("calls = %d, want %d", calls, tc.wantCalls)
+			}
+		})
+	}
+}
+
+func TestUnclassifiedErrorsAreRetried(t *testing.T) {
+	if !Retryable(errors.New("connection refused")) {
+		t.Error("a bare error should be retried; a dropped connection usually is worth another go")
+	}
+	if Retryable(nil) {
+		t.Error("no error is not retryable")
+	}
+}
