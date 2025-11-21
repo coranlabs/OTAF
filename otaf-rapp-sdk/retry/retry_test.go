@@ -28,3 +28,7 @@ func fast() Policy {
 type statusError struct {
 	status int
 }
+
+func (e *statusError) Error() string   { return "status error" }
+
+func (e *statusError) Retryable() bool { return e.status >= 500 }
