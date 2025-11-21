@@ -46,3 +46,42 @@ func TestSucceedsWithoutRetrying(t *testing.T) {
 		t.Errorf("calls = %d, want 1", calls)
 	}
 }
+
+func TestRetriesUntilItWorks(t *testing.T) {
+	var calls int
+	err := Do(context.Background(), fast(), func(context.Context, int) error {
+		calls++
+		if calls < 3 {
+			return errors.New("not yet")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 {
+		t.Errorf("calls = %d, want 3", calls)
+	}
+}
+
+func TestGivesUpAfterTheLastAttempt(t *testing.T) {
+	var calls int
+	sentinel := errors.New("still failing")
+
+	err := Do(context.Background(), fast(), func(context.Context, int) error {
+		calls++
+		return sentinel
+	})
+
+	if calls != 4 {
+		t.Errorf("calls = %d, want 4", calls)
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("the real cause should stay reachable, got %v", err)
+	}
+
+	var exhausted *ExhaustedError
+	if !errors.As(err, &exhausted) || exhausted.Attempts != 4 {
+		t.Errorf("expected an exhausted error naming 4 attempts, got %v", err)
+	}
+}
