@@ -32,3 +32,17 @@ type statusError struct {
 func (e *statusError) Error() string   { return "status error" }
 
 func (e *statusError) Retryable() bool { return e.status >= 500 }
+
+func TestSucceedsWithoutRetrying(t *testing.T) {
+	var calls int
+	err := Do(context.Background(), fast(), func(context.Context, int) error {
+		calls++
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1", calls)
+	}
+}
