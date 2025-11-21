@@ -213,3 +213,15 @@ func TestDoValueReturnsTheResult(t *testing.T) {
 		t.Errorf("got %q, want payload", got)
 	}
 }
+
+func TestDoValueReturnsZeroOnFailure(t *testing.T) {
+	got, err := DoValue(context.Background(), None(), func(context.Context, int) (int, error) {
+		return 42, errors.New("failing")
+	})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if got != 0 {
+		t.Errorf("got %d, want the zero value when the call failed", got)
+	}
+}
