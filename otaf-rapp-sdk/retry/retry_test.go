@@ -137,3 +137,34 @@ func TestUnclassifiedErrorsAreRetried(t *testing.T) {
 		t.Error("no error is not retryable")
 	}
 }
+
+func TestContextCancellationStopsRetrying(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var calls int
+	err := Do(ctx, Policy{Attempts: 10, Initial: 50 * time.Millisecond, Multiplier: 1}, func(context.Context, int) error {
+		calls++
+		if calls == 2 {
+			cancel()
+		}
+		return errors.New("failing")
+	})
+
+	if err == nil {
+		t.Fatal("expected an error once the context ended")
+	}
+	if calls > 3 {
+		t.Errorf("calls = %d, want the loop to stop promptly after cancellation", calls)
+	}
+}
+
+func TestNoneDisablesRetrying(t *testing.T) {
+	var calls int
+	_ = Do(context.Background(), None(), func(context.Context, int) error {
+		calls++
+		return errors.New("failing")
+	})
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1", calls)
+	}
+}
