@@ -168,3 +168,48 @@ func TestNoneDisablesRetrying(t *testing.T) {
 		t.Errorf("calls = %d, want 1", calls)
 	}
 }
+
+func TestBackoffGrowsAndIsCapped(t *testing.T) {
+	p := Policy{Attempts: 8, Initial: 100 * time.Millisecond, Max: 400 * time.Millisecond, Multiplier: 2}
+
+	first, second, third := p.Backoff(1), p.Backoff(2), p.Backoff(3)
+	if !(first < second && second < third) {
+		t.Errorf("backoff should grow, got %v %v %v", first, second, third)
+	}
+	for attempt := 4; attempt < 8; attempt++ {
+		if got := p.Backoff(attempt); got > p.Max {
+			t.Errorf("backoff at attempt %d = %v, want it capped at %v", attempt, got, p.Max)
+		}
+	}
+}
+
+// Without jitter a fleet of rApps recovering from one outage retries in
+// lockstep and hits the service together.
+func TestJitterSpreadsTheDelay(t *testing.T) {
+	p := Policy{Attempts: 5, Initial: time.Second, Max: time.Minute, Multiplier: 2, Jitter: 0.5}
+
+	seen := map[time.Duration]bool{}
+	for i := 0; i < 20; i++ {
+		seen[p.Backoff(3)] = true
+	}
+	if len(seen) < 5 {
+		t.Errorf("expected jittered delays to vary, saw %d distinct values", len(seen))
+	}
+}
+
+func TestDoValueReturnsTheResult(t *testing.T) {
+	var calls int
+	got, err := DoValue(context.Background(), fast(), func(context.Context, int) (string, error) {
+		calls++
+		if calls < 2 {
+			return "", errors.New("not yet")
+		}
+		return "payload", nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "payload" {
+		t.Errorf("got %q, want payload", got)
+	}
+}
