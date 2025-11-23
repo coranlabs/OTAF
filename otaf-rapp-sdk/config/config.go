@@ -37,3 +37,21 @@ type Rapp struct {
 	LogLevel  string `yaml:"log_level" env:"LOG_LEVEL"`
 	LogFormat string `yaml:"log_format" env:"LOG_FORMAT"`
 }
+
+func (r *Rapp) applyDefaults() {
+	if r.Name == "" {
+		r.Name = "rapp"
+	}
+	if r.Version == "" {
+		r.Version = "0.1.0"
+	}
+	if r.HTTPPort == "" {
+		r.HTTPPort = "8080"
+	}
+	if r.LogLevel == "" {
+		r.LogLevel = "info"
+	}
+	if r.LogFormat == "" {
+		r.LogFormat = "text"
+	}
+}
