@@ -55,3 +55,50 @@ func (r *Rapp) applyDefaults() {
 		r.LogFormat = "text"
 	}
 }
+
+// SearchPaths are tried in order when no explicit path is given. CONFIG_PATH
+// wins over all of them; the chart normally sets it.
+var SearchPaths = []string{
+	"config/rapp.yaml",
+	"/app/config/rapp.yaml",
+	"/etc/rapp/rapp.yaml",
+}
+
+// Load fills dst from the first readable YAML file, then applies env overrides.
+// A missing file is not fatal as long as the environment supplies what the
+// rApp needs; an unreadable or malformed file always is.
+func Load(dst any, paths ...string) error {
+	if len(paths) == 0 {
+		if p := os.Getenv("CONFIG_PATH"); p != "" {
+			paths = []string{p}
+		} else {
+			paths = SearchPaths
+		}
+	}
+
+	var loaded string
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		if err := yaml.Unmarshal(data, dst); err != nil {
+			return errs.Wrapf(err, errs.CategoryConfig, "CONFIG_UNPARSEABLE",
+				"config file %s is not valid YAML", p).WithField("path", p)
+		}
+		loaded = p
+		break
+	}
+	if loaded == "" && len(paths) == 1 {
+		return errs.Newf(errs.CategoryConfig, "CONFIG_MISSING",
+			"config file %s is not readable", paths[0]).WithField("path", paths[0])
+	}
+
+	if err := ApplyEnv(dst); err != nil {
+		return err
+	}
+	if r := findRapp(reflect.ValueOf(dst)); r != nil {
+		r.applyDefaults()
+	}
+	return nil
+}
