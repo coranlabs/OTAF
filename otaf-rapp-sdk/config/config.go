@@ -230,3 +230,24 @@ func set(v reflect.Value, raw string) error {
 	}
 	return nil
 }
+
+func findRapp(v reflect.Value) *Rapp {
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+	if v.Type() == reflect.TypeOf(Rapp{}) && v.CanAddr() {
+		return v.Addr().Interface().(*Rapp)
+	}
+	for i := 0; i < v.NumField(); i++ {
+		if r := findRapp(v.Field(i)); r != nil {
+			return r
+		}
+	}
+	return nil
+}
