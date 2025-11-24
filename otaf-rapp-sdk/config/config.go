@@ -102,3 +102,20 @@ func Load(dst any, paths ...string) error {
 	}
 	return nil
 }
+
+// Path reports which file Load would read, or "" when none is readable.
+func Path(paths ...string) string {
+	if len(paths) == 0 {
+		if p := os.Getenv("CONFIG_PATH"); p != "" {
+			paths = []string{p}
+		} else {
+			paths = SearchPaths
+		}
+	}
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
