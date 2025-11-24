@@ -130,3 +130,103 @@ func ApplyEnv(dst any) error {
 	}
 	return walk(v.Elem())
 }
+
+func walk(v reflect.Value) error {
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field, value := t.Field(i), v.Field(i)
+		if !value.CanSet() {
+			continue
+		}
+
+		switch value.Kind() {
+		case reflect.Struct:
+			if value.Type() != reflect.TypeOf(time.Duration(0)) {
+				if err := walk(value); err != nil {
+					return err
+				}
+				continue
+			}
+		case reflect.Pointer:
+			if !value.IsNil() && value.Elem().Kind() == reflect.Struct {
+				if err := walk(value.Elem()); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+
+		name := field.Tag.Get("env")
+		if name == "" || name == "-" {
+			continue
+		}
+		raw, ok := os.LookupEnv(name)
+		if !ok || raw == "" {
+			continue
+		}
+		if err := set(value, raw); err != nil {
+			return errs.Wrapf(err, errs.CategoryConfig, "CONFIG_BAD_VALUE",
+				"%s=%q is not usable", name, raw).
+				WithField("variable", name).WithField("value", raw)
+		}
+	}
+	return nil
+}
+
+func set(v reflect.Value, raw string) error {
+	if v.Type() == reflect.TypeOf(time.Duration(0)) {
+		d, err := time.ParseDuration(raw)
+		if err != nil {
+			return err
+		}
+		v.SetInt(int64(d))
+		return nil
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		v.SetString(raw)
+	case reflect.Bool:
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			return err
+		}
+		v.SetBool(b)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			return err
+		}
+		v.SetInt(n)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		n, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			return err
+		}
+		v.SetUint(n)
+	case reflect.Float32, reflect.Float64:
+		f, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return err
+		}
+		v.SetFloat(f)
+	case reflect.Slice:
+		if v.Type().Elem().Kind() != reflect.String {
+			return fmt.Errorf("unsupported slice element %s", v.Type().Elem())
+		}
+		parts := strings.Split(raw, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p = strings.TrimSpace(p); p != "" {
+				out = append(out, p)
+			}
+		}
+		v.Set(reflect.ValueOf(out))
+	default:
+		return fmt.Errorf("unsupported kind %s", v.Kind())
+	}
+	return nil
+}
