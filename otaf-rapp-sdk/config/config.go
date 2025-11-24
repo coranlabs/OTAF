@@ -119,3 +119,14 @@ func Path(paths ...string) string {
 	}
 	return ""
 }
+
+// ApplyEnv walks dst and overwrites every field carrying an `env:"NAME"` tag
+// whose variable is set and non-empty.
+func ApplyEnv(dst any) error {
+	v := reflect.ValueOf(dst)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return errs.New(errs.CategoryInternal, "CONFIG_BAD_DESTINATION",
+			"config: destination must be a non-nil pointer")
+	}
+	return walk(v.Elem())
+}
