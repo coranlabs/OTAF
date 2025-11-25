@@ -126,3 +126,10 @@ func TestUnparseableEnvIsAnError(t *testing.T) {
 		t.Fatal("expected an error for an unparseable duration")
 	}
 }
+
+func TestExplicitPathMustExist(t *testing.T) {
+	var cfg sample
+	if err := Load(&cfg, filepath.Join(t.TempDir(), "absent.yaml")); err == nil {
+		t.Fatal("expected an error when the named config file is missing")
+	}
+}
