@@ -133,3 +133,12 @@ func TestExplicitPathMustExist(t *testing.T) {
 		t.Fatal("expected an error when the named config file is missing")
 	}
 }
+
+func TestMalformedYamlIsAnError(t *testing.T) {
+	path := writeConfig(t, "rapp:\n  name: [unterminated\n")
+
+	var cfg sample
+	if err := Load(&cfg, path); err == nil {
+		t.Fatal("expected an error for malformed YAML")
+	}
+}
