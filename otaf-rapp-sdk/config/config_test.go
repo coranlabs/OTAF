@@ -142,3 +142,9 @@ func TestMalformedYamlIsAnError(t *testing.T) {
 		t.Fatal("expected an error for malformed YAML")
 	}
 }
+
+func TestApplyEnvRejectsNonPointer(t *testing.T) {
+	if err := ApplyEnv(sample{}); err == nil {
+		t.Fatal("expected an error when the destination is not a pointer")
+	}
+}
