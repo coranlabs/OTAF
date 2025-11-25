@@ -116,3 +116,13 @@ func TestEmptyEnvDoesNotOverride(t *testing.T) {
 		t.Errorf("endpoint = %q, want the file value kept", cfg.Inner.Endpoint)
 	}
 }
+
+func TestUnparseableEnvIsAnError(t *testing.T) {
+	path := writeConfig(t, "rapp:\n  name: probe\n")
+	t.Setenv("TEST_TIMEOUT", "not-a-duration")
+
+	var cfg sample
+	if err := Load(&cfg, path); err == nil {
+		t.Fatal("expected an error for an unparseable duration")
+	}
+}
