@@ -13,6 +13,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `errs` | Failure categories, from which severity, retryability and HTTP status are derived |
 | `log` | Log levels determined by failure severity |
 | `retry` | Exponential backoff with jitter, governed by the classification carried by the error |
+| `config` | YAML configuration with per-field environment overrides at any nesting depth |
 
 ## Licence
 
