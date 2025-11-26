@@ -34,6 +34,8 @@ type CheckerFunc struct {
 	Fn    func(ctx context.Context) error
 }
 
+func (c CheckerFunc) Name() string                    { return c.Label }
+
 type Status struct {
 	Healthy bool      `json:"healthy"`
 	Error   string    `json:"error,omitempty"`
