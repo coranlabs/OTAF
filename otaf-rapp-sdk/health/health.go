@@ -55,3 +55,14 @@ type Registry struct {
 	checkers []Checker
 	status   map[string]Status
 }
+
+func NewRegistry(logger *logrus.Logger) *Registry {
+	return &Registry{logger: logger, status: map[string]Status{}}
+}
+
+func (r *Registry) Add(c Checker) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.checkers = append(r.checkers, c)
+	r.status[c.Name()] = Status{}
+}
