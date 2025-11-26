@@ -66,3 +66,47 @@ func (r *Registry) Add(c Checker) {
 	r.checkers = append(r.checkers, c)
 	r.status[c.Name()] = Status{}
 }
+
+func (r *Registry) Snapshot() map[string]Status {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[string]Status, len(r.status))
+	for k, v := range r.status {
+		out[k] = v
+	}
+	return out
+}
+
+// Healthy reports whether every registered dependency passed its last check.
+// An rApp with no dependencies is healthy.
+func (r *Registry) Healthy() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.status {
+		if !s.Healthy {
+			return false
+		}
+	}
+	return true
+}
+
+// Monitor probes every dependency on an interval until ctx ends. Only
+// transitions are logged at warn/info; steady state stays at debug so a long
+// outage does not flood the platform's log pipeline.
+func (r *Registry) Monitor(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	r.probeAll(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.probeAll(ctx)
+		}
+	}
+}
