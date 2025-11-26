@@ -28,3 +28,22 @@ type Checker interface {
 	Name() string
 	Check(ctx context.Context) error
 }
+
+type CheckerFunc struct {
+	Label string
+	Fn    func(ctx context.Context) error
+}
+
+type Status struct {
+	Healthy bool      `json:"healthy"`
+	Error   string    `json:"error,omitempty"`
+	Checked time.Time `json:"checked_at"`
+}
+
+type Registry struct {
+	logger *logrus.Logger
+
+	mu       sync.RWMutex
+	checkers []Checker
+	status   map[string]Status
+}
