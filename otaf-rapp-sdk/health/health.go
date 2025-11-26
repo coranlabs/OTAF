@@ -38,6 +38,10 @@ func (c CheckerFunc) Name() string                    { return c.Label }
 
 func (c CheckerFunc) Check(ctx context.Context) error { return c.Fn(ctx) }
 
+func Func(name string, fn func(context.Context) error) Checker {
+	return CheckerFunc{Label: name, Fn: fn}
+}
+
 type Status struct {
 	Healthy bool      `json:"healthy"`
 	Error   string    `json:"error,omitempty"`
