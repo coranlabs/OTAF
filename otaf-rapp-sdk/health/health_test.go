@@ -25,7 +25,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func recordingLogger() (*logrus.Logger, *lines) {
+	l := logrus.New()
+	l.SetLevel(logrus.DebugLevel)
+	out := &lines{}
+	l.SetOutput(out)
+	return l, out
+}
+
 type lines struct {
 	mu   sync.Mutex
 	text strings.Builder
+}
+
+type flappy struct {
+	mu  sync.Mutex
+	err error
 }
