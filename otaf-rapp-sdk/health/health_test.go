@@ -38,7 +38,25 @@ type lines struct {
 	text strings.Builder
 }
 
+func (l *lines) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.text.Write(p)
+}
+
+func (l *lines) count(substr string) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return strings.Count(l.text.String(), substr)
+}
+
 type flappy struct {
 	mu  sync.Mutex
 	err error
+}
+
+func (f *flappy) set(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = err
 }
