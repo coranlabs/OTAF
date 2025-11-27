@@ -14,6 +14,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `log` | Log levels determined by failure severity |
 | `retry` | Exponential backoff with jitter, governed by the classification carried by the error |
 | `config` | YAML configuration with per-field environment overrides at any nesting depth |
+| `health` | Dependency probes evaluated behind readiness, logged on state transitions only |
 
 ## Licence
 
