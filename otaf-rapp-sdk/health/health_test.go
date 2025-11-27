@@ -146,3 +146,48 @@ func TestSnapshotIsACopy(t *testing.T) {
 		t.Error("mutating a snapshot must not affect the registry")
 	}
 }
+
+func TestMonitorProbesUntilContextEnds(t *testing.T) {
+	r := NewRegistry(nil)
+
+	var probes int
+	var mu sync.Mutex
+	r.Add(Func("a", func(context.Context) error {
+		mu.Lock()
+		probes++
+		mu.Unlock()
+		return nil
+	}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Millisecond)
+	defer cancel()
+	r.Monitor(ctx, 20*time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if probes < 2 {
+		t.Errorf("probes = %d, want the monitor to check repeatedly", probes)
+	}
+}
+
+func TestMonitorProbesImmediately(t *testing.T) {
+	r := NewRegistry(nil)
+	probed := make(chan struct{}, 1)
+	r.Add(Func("a", func(context.Context) error {
+		select {
+		case probed <- struct{}{}:
+		default:
+		}
+		return nil
+	}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	go r.Monitor(ctx, time.Hour)
+
+	select {
+	case <-probed:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("the first probe should not wait for a full interval")
+	}
+}
