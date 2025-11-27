@@ -29,3 +29,21 @@ import (
 )
 
 const namespace = "rapp"
+
+type IngestStats struct {
+	Queued    int
+	Capacity  int
+	Accepted  uint64
+	Dropped   uint64
+	Failed    uint64
+	Processed uint64
+}
+
+type Metrics struct {
+	registry *prometheus.Registry
+
+	handlerDuration *prometheus.HistogramVec
+	deliveries      *prometheus.CounterVec
+	policyOps       *prometheus.CounterVec
+	failures        *prometheus.CounterVec
+}
