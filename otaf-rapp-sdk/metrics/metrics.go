@@ -47,3 +47,15 @@ type Metrics struct {
 	policyOps       *prometheus.CounterVec
 	failures        *prometheus.CounterVec
 }
+
+var (
+	queuedDesc = prometheus.NewDesc(
+		namespace+"_ingest_queue_depth", "Messages waiting to be handled.", nil, nil)
+	capacityDesc = prometheus.NewDesc(
+		namespace+"_ingest_queue_capacity", "How many messages the queue can hold.", nil, nil)
+	messagesDesc = prometheus.NewDesc(
+		namespace+"_ingest_messages_total", "Messages by what became of them.", []string{"outcome"}, nil)
+	dependencyDesc = prometheus.NewDesc(
+		namespace+"_dependency_up", "1 when a platform dependency answered its last check.",
+		[]string{"dependency"}, nil)
+)
