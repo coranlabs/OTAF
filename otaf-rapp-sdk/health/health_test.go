@@ -60,3 +60,25 @@ func (f *flappy) set(err error) {
 	defer f.mu.Unlock()
 	f.err = err
 }
+
+func (f *flappy) check(context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.err
+}
+
+func TestNoDependenciesIsHealthy(t *testing.T) {
+	r := NewRegistry(nil)
+	if !r.Healthy() {
+		t.Error("an rApp with no dependencies has nothing that can be down")
+	}
+}
+
+func TestUncheckedDependencyIsNotYetHealthy(t *testing.T) {
+	r := NewRegistry(nil)
+	r.Add(Func("controller", func(context.Context) error { return nil }))
+
+	if r.Healthy() {
+		t.Error("a dependency that has not been probed should not count as up")
+	}
+}
