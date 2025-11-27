@@ -82,3 +82,29 @@ func TestUncheckedDependencyIsNotYetHealthy(t *testing.T) {
 		t.Error("a dependency that has not been probed should not count as up")
 	}
 }
+
+func TestProbeRecordsOutcome(t *testing.T) {
+	r := NewRegistry(nil)
+	dep := &flappy{err: errors.New("unreachable")}
+	r.Add(Func("controller", dep.check))
+
+	r.probeAll(context.Background())
+
+	snap := r.Snapshot()["controller"]
+	if snap.Healthy {
+		t.Error("a failing dependency should report unhealthy")
+	}
+	if snap.Error != "unreachable" {
+		t.Errorf("error = %q, want the checker's message", snap.Error)
+	}
+	if snap.Checked.IsZero() {
+		t.Error("the probe time should be recorded")
+	}
+
+	dep.set(nil)
+	r.probeAll(context.Background())
+
+	if !r.Healthy() {
+		t.Error("the registry should recover once the dependency answers")
+	}
+}
