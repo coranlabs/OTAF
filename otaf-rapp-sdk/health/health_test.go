@@ -108,3 +108,28 @@ func TestProbeRecordsOutcome(t *testing.T) {
 		t.Error("the registry should recover once the dependency answers")
 	}
 }
+
+// A dependency that is down for an hour should not produce an hour of logs.
+func TestOnlyTransitionsAreLoggedLoudly(t *testing.T) {
+	logger, out := recordingLogger()
+	r := NewRegistry(logger)
+
+	dep := &flappy{err: errors.New("unreachable")}
+	r.Add(Func("controller", dep.check))
+
+	for i := 0; i < 5; i++ {
+		r.probeAll(context.Background())
+	}
+
+	if got := out.count("dependency unreachable"); got != 1 {
+		t.Errorf("logged the outage %d times, want 1", got)
+	}
+
+	dep.set(nil)
+	r.probeAll(context.Background())
+	r.probeAll(context.Background())
+
+	if got := out.count("dependency reachable"); got != 1 {
+		t.Errorf("logged the recovery %d times, want 1", got)
+	}
+}
