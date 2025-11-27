@@ -133,3 +133,16 @@ func TestOnlyTransitionsAreLoggedLoudly(t *testing.T) {
 		t.Errorf("logged the recovery %d times, want 1", got)
 	}
 }
+
+func TestSnapshotIsACopy(t *testing.T) {
+	r := NewRegistry(nil)
+	r.Add(Func("a", func(context.Context) error { return nil }))
+	r.probeAll(context.Background())
+
+	snap := r.Snapshot()
+	snap["a"] = Status{Healthy: false}
+
+	if !r.Snapshot()["a"].Healthy {
+		t.Error("mutating a snapshot must not affect the registry")
+	}
+}
