@@ -123,6 +123,22 @@ func (m *Metrics) Handler() http.Handler {
 // Registerer lets an rApp add metrics of its own to the same endpoint.
 func (m *Metrics) Registerer() prometheus.Registerer { return m.registry }
 
+func (m *Metrics) Gatherer() prometheus.Gatherer { return m.registry }
+
+// Handled records one pass through the rApp's handler, and what kind of
+// failure it was when it failed.
+func (m *Metrics) Handled(source string, d time.Duration, err error) {
+	outcome := "ok"
+	if err != nil {
+		outcome = "error"
+	}
+	m.handlerDuration.WithLabelValues(source, outcome).Observe(d.Seconds())
+
+	if err != nil {
+		m.Failed(err)
+	}
+}
+
 var (
 	queuedDesc = prometheus.NewDesc(
 		namespace+"_ingest_queue_depth", "Messages waiting to be handled.", nil, nil)
