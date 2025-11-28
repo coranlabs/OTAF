@@ -139,6 +139,28 @@ func (m *Metrics) Handled(source string, d time.Duration, err error) {
 	}
 }
 
+// Failed counts a failure by its classification, which is what turns "things
+// are going wrong" into "the policy service is refusing us".
+//
+// Codes must come from a fixed set. One derived from per-message data, such as
+// a cell id, would give this metric unbounded cardinality.
+func (m *Metrics) Failed(err error) {
+	if err == nil {
+		return
+	}
+	code := errs.CodeOf(err)
+	if code == "" {
+		code = "unclassified"
+	}
+	m.failures.WithLabelValues(string(errs.CategoryOf(err)), code).Inc()
+}
+
+func (m *Metrics) Delivered(outcome string) { m.deliveries.WithLabelValues(outcome).Inc() }
+
+func (m *Metrics) PolicyOperation(operation, outcome string) {
+	m.policyOps.WithLabelValues(operation, outcome).Inc()
+}
+
 var (
 	queuedDesc = prometheus.NewDesc(
 		namespace+"_ingest_queue_depth", "Messages waiting to be handled.", nil, nil)
