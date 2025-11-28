@@ -30,6 +30,13 @@ import (
 
 const namespace = "rapp"
 
+// Snapshots are read at scrape time rather than mirrored into counters, so the
+// numbers can never drift from the values the rApp reports elsewhere.
+type Snapshots struct {
+	Ingest     func() IngestStats
+	Dependency func() map[string]bool
+}
+
 type IngestStats struct {
 	Queued    int
 	Capacity  int
@@ -46,6 +53,71 @@ type Metrics struct {
 	deliveries      *prometheus.CounterVec
 	policyOps       *prometheus.CounterVec
 	failures        *prometheus.CounterVec
+}
+
+// New builds the metric set for one rApp. Its own collectors are registered
+// alongside the Go runtime and process collectors.
+func New(rappName, version string, snaps Snapshots) *Metrics {
+	reg := prometheus.NewRegistry()
+
+	m := &Metrics{
+		registry: reg,
+		handlerDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "handler_duration_seconds",
+			Help:      "Time the rApp's handler spent on one message.",
+			Buckets:   prometheus.DefBuckets,
+		}, []string{"source", "outcome"}),
+		deliveries: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "r1_deliveries_total",
+			Help:      "Deliveries attempted to R1 information job targets.",
+		}, []string{"outcome"}),
+		policyOps: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "a1_policy_operations_total",
+			Help:      "A1 policy operations by verb and outcome.",
+		}, []string{"operation", "outcome"}),
+		failures: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "failures_total",
+			Help: "Failures by what kind they were. Both labels must come from a " +
+				"fixed set: a code derived from per-message data would make this " +
+				"series unbounded.",
+		}, []string{"category", "code"}),
+	}
+
+	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "build_info",
+		Help:      "Constant 1, labelled with what this rApp is and what built it.",
+	}, []string{"rapp", "version", "sdk"})
+	buildInfo.WithLabelValues(rappName, version, rappsdk.UserAgent).Set(1)
+
+	startTime := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "start_time_seconds",
+		Help:      "Unix time the rApp started.",
+	})
+	startTime.Set(float64(time.Now().Unix()))
+
+	reg.MustRegister(
+		m.handlerDuration,
+		m.deliveries,
+		m.policyOps,
+		m.failures,
+		buildInfo,
+		startTime,
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		&snapshotCollector{snaps: snaps},
+	)
+
+	return m
+}
+
+func (m *Metrics) Handler() http.Handler {
+	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
 }
 
 var (
