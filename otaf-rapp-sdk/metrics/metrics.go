@@ -161,6 +161,12 @@ func (m *Metrics) PolicyOperation(operation, outcome string) {
 	m.policyOps.WithLabelValues(operation, outcome).Inc()
 }
 
+// snapshotCollector turns the counters an rApp already keeps into metrics at
+// scrape time, so nothing has to be incremented in two places.
+type snapshotCollector struct {
+	snaps Snapshots
+}
+
 var (
 	queuedDesc = prometheus.NewDesc(
 		namespace+"_ingest_queue_depth", "Messages waiting to be handled.", nil, nil)
@@ -172,3 +178,36 @@ var (
 		namespace+"_dependency_up", "1 when a platform dependency answered its last check.",
 		[]string{"dependency"}, nil)
 )
+
+func (c *snapshotCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- queuedDesc
+	ch <- capacityDesc
+	ch <- messagesDesc
+	ch <- dependencyDesc
+}
+
+func (c *snapshotCollector) Collect(ch chan<- prometheus.Metric) {
+	if c.snaps.Ingest != nil {
+		s := c.snaps.Ingest()
+		ch <- prometheus.MustNewConstMetric(queuedDesc, prometheus.GaugeValue, float64(s.Queued))
+		ch <- prometheus.MustNewConstMetric(capacityDesc, prometheus.GaugeValue, float64(s.Capacity))
+		for outcome, v := range map[string]uint64{
+			"accepted":  s.Accepted,
+			"dropped":   s.Dropped,
+			"failed":    s.Failed,
+			"processed": s.Processed,
+		} {
+			ch <- prometheus.MustNewConstMetric(messagesDesc, prometheus.CounterValue, float64(v), outcome)
+		}
+	}
+
+	if c.snaps.Dependency != nil {
+		for name, up := range c.snaps.Dependency() {
+			value := 0.0
+			if up {
+				value = 1
+			}
+			ch <- prometheus.MustNewConstMetric(dependencyDesc, prometheus.GaugeValue, value, name)
+		}
+	}
+}
