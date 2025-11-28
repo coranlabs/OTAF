@@ -120,6 +120,9 @@ func (m *Metrics) Handler() http.Handler {
 	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
 }
 
+// Registerer lets an rApp add metrics of its own to the same endpoint.
+func (m *Metrics) Registerer() prometheus.Registerer { return m.registry }
+
 var (
 	queuedDesc = prometheus.NewDesc(
 		namespace+"_ingest_queue_depth", "Messages waiting to be handled.", nil, nil)
