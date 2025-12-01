@@ -111,3 +111,35 @@ func TestHandlerDurationRecordsOutcome(t *testing.T) {
 		t.Error("a failed pass should be counted as an error")
 	}
 }
+
+// Counting failures by kind is what turns "things are going wrong" into "the
+// policy service is refusing us".
+func TestFailuresAreCountedByClassification(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{})
+
+	m.Failed(errs.New(errs.CategoryPlatform, "A1_REJECTED", "refused"))
+	m.Failed(errs.New(errs.CategoryPlatform, "A1_REJECTED", "refused again"))
+	m.Failed(errs.New(errs.CategoryData, "MALFORMED", "bad payload"))
+
+	body := scrape(t, m)
+	for _, want := range []string{
+		`rapp_failures_total{category="platform",code="A1_REJECTED"} 2`,
+		`rapp_failures_total{category="data",code="MALFORMED"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("exposition is missing %q", want)
+		}
+	}
+}
+
+// An error that says nothing about itself must still be counted, or failures
+// go missing exactly where classification has not been applied yet.
+func TestUnclassifiedFailuresAreStillCounted(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{})
+	m.Failed(errors.New("something went wrong"))
+
+	body := scrape(t, m)
+	if !strings.Contains(body, `rapp_failures_total{category="unknown",code="unclassified"} 1`) {
+		t.Error("an unclassified failure should still appear")
+	}
+}
