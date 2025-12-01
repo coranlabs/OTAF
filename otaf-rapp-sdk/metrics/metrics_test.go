@@ -143,3 +143,41 @@ func TestUnclassifiedFailuresAreStillCounted(t *testing.T) {
 		t.Error("an unclassified failure should still appear")
 	}
 }
+
+func TestHandledFailureAlsoCountsTheFailure(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{})
+	m.Handled("http/data", time.Millisecond, errs.New(errs.CategoryData, "MALFORMED", "bad"))
+
+	body := scrape(t, m)
+	if !strings.Contains(body, `rapp_failures_total{category="data",code="MALFORMED"} 1`) {
+		t.Error("a failed handler pass should be counted as a failure too")
+	}
+}
+
+func TestFailedIgnoresNil(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{})
+	m.Failed(nil)
+
+	if strings.Contains(scrape(t, m), "rapp_failures_total") {
+		t.Error("no failure should produce no series")
+	}
+}
+
+func TestDeliveryAndPolicyCounters(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{})
+
+	m.Delivered("ok")
+	m.Delivered("rejected")
+	m.PolicyOperation("put", "ok")
+
+	body := scrape(t, m)
+	for _, want := range []string{
+		`rapp_r1_deliveries_total{outcome="ok"} 1`,
+		`rapp_r1_deliveries_total{outcome="rejected"} 1`,
+		`rapp_a1_policy_operations_total{operation="put",outcome="ok"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("exposition is missing %q", want)
+		}
+	}
+}
