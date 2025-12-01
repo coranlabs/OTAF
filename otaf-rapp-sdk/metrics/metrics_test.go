@@ -82,3 +82,32 @@ func TestIngestStatsAreReadAtScrapeTime(t *testing.T) {
 		t.Error("a later scrape should see the updated value")
 	}
 }
+
+func TestDependencyGauge(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{
+		Dependency: func() map[string]bool { return map[string]bool{"a1": true, "sdnr": false} },
+	})
+
+	body := scrape(t, m)
+	if !strings.Contains(body, `rapp_dependency_up{dependency="a1"} 1`) {
+		t.Error("a reachable dependency should report 1")
+	}
+	if !strings.Contains(body, `rapp_dependency_up{dependency="sdnr"} 0`) {
+		t.Error("an unreachable dependency should report 0")
+	}
+}
+
+func TestHandlerDurationRecordsOutcome(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{})
+
+	m.Handled("http/data", 12*time.Millisecond, nil)
+	m.Handled("http/data", 3*time.Millisecond, errors.New("bad payload"))
+
+	body := scrape(t, m)
+	if !strings.Contains(body, `rapp_handler_duration_seconds_count{outcome="ok",source="http/data"} 1`) {
+		t.Error("a successful pass should be counted as ok")
+	}
+	if !strings.Contains(body, `rapp_handler_duration_seconds_count{outcome="error",source="http/data"} 1`) {
+		t.Error("a failed pass should be counted as an error")
+	}
+}
