@@ -181,3 +181,25 @@ func TestDeliveryAndPolicyCounters(t *testing.T) {
 		}
 	}
 }
+
+// An rApp must be able to publish its own measurements on the same endpoint.
+func TestRappCanRegisterItsOwnMetrics(t *testing.T) {
+	m := New("demo", "1.0.0", Snapshots{})
+
+	own := newTestGauge()
+	if err := m.Registerer().Register(own); err != nil {
+		t.Fatal(err)
+	}
+	own.Set(42)
+
+	if body := scrape(t, m); !strings.Contains(body, "cells_tracked 42") {
+		t.Error("an rApp's own metric should appear on the endpoint")
+	}
+}
+
+func TestRuntimeCollectorsArePresent(t *testing.T) {
+	body := scrape(t, New("demo", "1.0.0", Snapshots{}))
+	if !strings.Contains(body, "go_goroutines") {
+		t.Error("the Go runtime collector should be registered")
+	}
+}
