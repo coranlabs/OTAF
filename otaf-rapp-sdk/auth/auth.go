@@ -168,3 +168,29 @@ func (g *Guard) Open(paths ...string) {
 		g.open[p] = struct{}{}
 	}
 }
+
+func (g *Guard) OpenPrefix(prefixes ...string) {
+	g.openMu.Lock()
+	defer g.openMu.Unlock()
+	g.prefix = append(g.prefix, prefixes...)
+}
+
+func (g *Guard) isOpen(path string) bool {
+	g.openMu.RLock()
+	defer g.openMu.RUnlock()
+	if _, ok := g.open[path]; ok {
+		return true
+	}
+	for _, p := range g.prefix {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Guard) Register(r *mux.Router) {
+	r.HandleFunc("/api/login", g.login).Methods(http.MethodPost)
+	r.HandleFunc("/api/logout", g.logout).Methods(http.MethodPost)
+	r.HandleFunc("/api/me", g.me).Methods(http.MethodGet)
+}
