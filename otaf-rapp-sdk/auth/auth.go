@@ -43,3 +43,30 @@ const (
 )
 
 type ctxKey struct{}
+
+type session struct {
+	user    string
+	expires time.Time
+}
+
+type peer struct {
+	fails  int
+	locked time.Time
+	seen   time.Time
+}
+
+type Guard struct {
+	logger     *logrus.Logger
+	users      map[string][]byte
+	ttl        time.Duration
+	secure     bool
+	trustProxy bool
+
+	mu       sync.Mutex
+	sessions map[string]session
+	peers    map[string]*peer
+
+	openMu sync.RWMutex
+	open   map[string]struct{}
+	prefix []string
+}
