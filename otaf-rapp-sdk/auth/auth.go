@@ -337,3 +337,49 @@ func (g *Guard) me(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"username": user})
 }
+
+func (g *Guard) lockedOut(addr string, now time.Time) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	p, ok := g.peers[addr]
+	return ok && now.Before(p.locked)
+}
+
+func (g *Guard) noteFailure(addr string, now time.Time) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	p, ok := g.peers[addr]
+	if !ok {
+		g.evictPeers(now)
+		p = &peer{}
+		g.peers[addr] = p
+	}
+	p.seen = now
+	p.fails++
+	if p.fails >= maxLoginFails {
+		p.locked = now.Add(lockWindow)
+		p.fails = 0
+	}
+}
+
+// Keeps a stream of logins from unique addresses from growing the map forever.
+func (g *Guard) evictPeers(now time.Time) {
+	if len(g.peers) < maxTrackedPeers {
+		return
+	}
+	for addr, p := range g.peers {
+		if now.After(p.locked) && now.Sub(p.seen) > lockWindow {
+			delete(g.peers, addr)
+		}
+	}
+	if len(g.peers) < maxTrackedPeers {
+		return
+	}
+	for addr := range g.peers {
+		delete(g.peers, addr)
+		if len(g.peers) < maxTrackedPeers {
+			return
+		}
+	}
+}
