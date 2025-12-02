@@ -42,7 +42,20 @@ const (
 	maxTrackedPeers = 4096
 )
 
+// Compared against when the account does not exist, so a wrong username and a
+// wrong password take the same time to reject. The password behind it is
+// random and discarded; nothing is meant to match this.
+var decoyHash = []byte("$2a$10$g/00j5A0w1be6K3ycmko3O7AZvyPJNSfOGqBuxDIaXrp8QyfQL6Uy")
+
 type ctxKey struct{}
+
+// UserOf returns the operator behind the request, or "" when unauthenticated.
+func UserOf(r *http.Request) string {
+	if v, ok := r.Context().Value(ctxKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
 
 type session struct {
 	user    string
@@ -70,3 +83,5 @@ type Guard struct {
 	open   map[string]struct{}
 	prefix []string
 }
+
+type Option func(*Guard)
