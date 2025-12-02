@@ -57,6 +57,12 @@ func UserOf(r *http.Request) string {
 	return ""
 }
 
+// Hash produces the bcrypt value stored in the chart for an operator account.
+func Hash(password string) (string, error) {
+	h, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(h), err
+}
+
 type session struct {
 	user    string
 	expires time.Time
@@ -85,3 +91,15 @@ type Guard struct {
 }
 
 type Option func(*Guard)
+
+func WithTTL(d time.Duration) Option {
+	return func(g *Guard) {
+		if d > 0 {
+			g.ttl = d
+		}
+	}
+}
+
+// WithSecureCookie marks the session cookie Secure. Enable it whenever the
+// rApp is reached over TLS.
+func WithSecureCookie(on bool) Option { return func(g *Guard) { g.secure = on } }
