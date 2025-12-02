@@ -153,3 +153,18 @@ func NewGuard(spec string, logger *logrus.Logger, opts ...Option) (*Guard, error
 	g.OpenPrefix("/r1/")
 	return g, nil
 }
+
+// A malformed account spec is a deployment that will never work, so it is
+// classified the same as any other misconfiguration.
+func badAccount(entry, reason string) error {
+	return errs.Newf(errs.CategoryConfig, "AUTH_BAD_ACCOUNT_SPEC",
+		"operator account %s is invalid: %s", entry, reason).WithField("entry", entry)
+}
+
+func (g *Guard) Open(paths ...string) {
+	g.openMu.Lock()
+	defer g.openMu.Unlock()
+	for _, p := range paths {
+		g.open[p] = struct{}{}
+	}
+}
