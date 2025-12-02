@@ -248,3 +248,92 @@ func (g *Guard) clientAddr(r *http.Request) string {
 	}
 	return host
 }
+
+func (g *Guard) login(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	addr := g.clientAddr(r)
+
+	if g.lockedOut(addr, now) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many failed attempts, try again shortly"})
+		return
+	}
+
+	var creds struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&creds); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	hash, known := g.users[creds.Username]
+	if !known {
+		hash = decoyHash
+	}
+	valid := bcrypt.CompareHashAndPassword(hash, []byte(creds.Password)) == nil
+	if !known || !valid {
+		g.noteFailure(addr, now)
+		if g.logger != nil {
+			g.logger.WithField("peer", addr).Warn("rejected login")
+		}
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid username or password"})
+		return
+	}
+
+	token, err := newToken()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session setup failed"})
+		return
+	}
+
+	g.mu.Lock()
+	delete(g.peers, addr)
+	for t, s := range g.sessions {
+		if now.After(s.expires) {
+			delete(g.sessions, t)
+		}
+	}
+	g.sessions[token] = session{user: creds.Username, expires: now.Add(g.ttl)}
+	g.mu.Unlock()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     CookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int(g.ttl.Seconds()),
+		HttpOnly: true,
+		Secure:   g.secure,
+		SameSite: http.SameSiteStrictMode,
+	})
+	if g.logger != nil {
+		g.logger.WithFields(logrus.Fields{"peer": addr, "user": creds.Username}).Info("operator signed in")
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (g *Guard) logout(w http.ResponseWriter, r *http.Request) {
+	if c, err := r.Cookie(CookieName); err == nil {
+		g.mu.Lock()
+		delete(g.sessions, c.Value)
+		g.mu.Unlock()
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     CookieName,
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   g.secure,
+		SameSite: http.SameSiteStrictMode,
+	})
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (g *Guard) me(w http.ResponseWriter, r *http.Request) {
+	user, ok := g.userOf(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"username": user})
+}
