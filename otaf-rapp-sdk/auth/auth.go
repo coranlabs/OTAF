@@ -103,3 +103,53 @@ func WithTTL(d time.Duration) Option {
 // WithSecureCookie marks the session cookie Secure. Enable it whenever the
 // rApp is reached over TLS.
 func WithSecureCookie(on bool) Option { return func(g *Guard) { g.secure = on } }
+
+// WithTrustedProxy derives the client address from X-Forwarded-For. Without
+// it, every request behind an ingress shares one address and a handful of bad
+// logins would lock out every operator at once.
+func WithTrustedProxy(on bool) Option { return func(g *Guard) { g.trustProxy = on } }
+
+// NewGuard builds a guard from "name:bcrypt-hash" pairs. An empty spec returns
+// a nil guard, which leaves the rApp's APIs unauthenticated.
+func NewGuard(spec string, logger *logrus.Logger, opts ...Option) (*Guard, error) {
+	if strings.TrimSpace(spec) == "" {
+		if logger != nil {
+			logger.Warn("no operator accounts configured: rApp APIs are unauthenticated")
+		}
+		return nil, nil
+	}
+
+	users := map[string][]byte{}
+	for _, entry := range strings.Split(spec, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		name, hash, ok := strings.Cut(entry, ":")
+		if !ok || name == "" || hash == "" {
+			return nil, badAccount(entry, "want name:bcrypt-hash")
+		}
+		if _, err := bcrypt.Cost([]byte(hash)); err != nil {
+			return nil, badAccount(name, "value is not a bcrypt hash")
+		}
+		users[name] = []byte(hash)
+	}
+	if len(users) == 0 {
+		return nil, nil
+	}
+
+	g := &Guard{
+		logger:   logger,
+		users:    users,
+		ttl:      defaultTTL,
+		sessions: map[string]session{},
+		peers:    map[string]*peer{},
+		open:     map[string]struct{}{},
+	}
+	for _, o := range opts {
+		o(g)
+	}
+	g.Open("/health", "/ready", "/status", "/metrics", "/api/login")
+	g.OpenPrefix("/r1/")
+	return g, nil
+}
