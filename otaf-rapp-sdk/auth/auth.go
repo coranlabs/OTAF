@@ -194,3 +194,57 @@ func (g *Guard) Register(r *mux.Router) {
 	r.HandleFunc("/api/logout", g.logout).Methods(http.MethodPost)
 	r.HandleFunc("/api/me", g.me).Methods(http.MethodGet)
 }
+
+func (g *Guard) Wrap(next http.Handler) http.Handler {
+	if g == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, ok := g.userOf(r)
+		if ok {
+			r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, user))
+		}
+		if ok || g.isOpen(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+	})
+}
+
+func (g *Guard) userOf(r *http.Request) (string, bool) {
+	c, err := r.Cookie(CookieName)
+	if err != nil || c.Value == "" {
+		return "", false
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	s, ok := g.sessions[c.Value]
+	if !ok {
+		return "", false
+	}
+	if time.Now().After(s.expires) {
+		delete(g.sessions, c.Value)
+		return "", false
+	}
+	return s.user, true
+}
+
+func (g *Guard) clientAddr(r *http.Request) string {
+	if g.trustProxy {
+		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+			if first, _, found := strings.Cut(fwd, ","); found {
+				return strings.TrimSpace(first)
+			}
+			return strings.TrimSpace(fwd)
+		}
+		if real := r.Header.Get("X-Real-IP"); real != "" {
+			return strings.TrimSpace(real)
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
