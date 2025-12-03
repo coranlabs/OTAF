@@ -208,3 +208,12 @@ func TestLogoutEndsTheSession(t *testing.T) {
 		t.Errorf("status after logout = %d, want 401", rec.Code)
 	}
 }
+
+func TestUnknownUserIsRejected(t *testing.T) {
+	h := protectedServer(newTestGuard(t))
+
+	resp := login(t, h, `{"username":"nobody","password":"correct-horse"}`)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", resp.StatusCode)
+	}
+}
