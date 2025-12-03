@@ -16,6 +16,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `config` | YAML configuration with per-field environment overrides at any nesting depth |
 | `health` | Dependency probes evaluated behind readiness, logged on state transitions only |
 | `metrics` | Prometheus exposition, derived from live snapshots at scrape time |
+| `auth` | Operator accounts, server-side sessions, and an authorisation guard that exempts platform paths |
 
 ## Licence
 
