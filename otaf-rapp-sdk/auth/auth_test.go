@@ -160,3 +160,51 @@ func TestRepeatedFailuresLockTheCaller(t *testing.T) {
 		t.Errorf("status after repeated failures = %d, want 429", resp.StatusCode)
 	}
 }
+
+// Without proxy awareness every caller behind an ingress shares one address,
+// so one attacker would lock out every operator at once.
+func TestLockoutIsPerForwardedClient(t *testing.T) {
+	g := newTestGuard(t, WithTrustedProxy(true))
+	h := protectedServer(g)
+
+	attempt := func(forwarded, password string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(
+			`{"username":"operator","password":"`+password+`"}`))
+		req.RemoteAddr = "10.0.0.9:5000"
+		req.Header.Set("X-Forwarded-For", forwarded+", 10.0.0.9")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	for i := 0; i < maxLoginFails; i++ {
+		attempt("203.0.113.5", "wrong")
+	}
+
+	if got := attempt("203.0.113.5", "correct-horse"); got != http.StatusTooManyRequests {
+		t.Errorf("offending client status = %d, want 429", got)
+	}
+	if got := attempt("198.51.100.7", "correct-horse"); got != http.StatusOK {
+		t.Errorf("innocent client status = %d, want 200", got)
+	}
+}
+
+func TestLogoutEndsTheSession(t *testing.T) {
+	h := protectedServer(newTestGuard(t))
+
+	resp := login(t, h, `{"username":"operator","password":"correct-horse"}`)
+	cookie := resp.Cookies()[0]
+
+	out := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
+	out.AddCookie(cookie)
+	h.ServeHTTP(httptest.NewRecorder(), out)
+
+	req := httptest.NewRequest(http.MethodGet, "/private", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status after logout = %d, want 401", rec.Code)
+	}
+}
