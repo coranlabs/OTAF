@@ -24,4 +24,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func quietLogger() *logrus.Logger {
+	l := logrus.New()
+	l.SetOutput(nopWriter{})
+	return l
+}
+
 type nopWriter struct{}
+
+func (nopWriter) Write(p []byte) (int, error) { return len(p), nil }
