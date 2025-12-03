@@ -49,3 +49,12 @@ func newTestGuard(t *testing.T, opts ...Option) *Guard {
 	}
 	return g
 }
+
+func protectedServer(g *Guard) http.Handler {
+	r := mux.NewRouter()
+	g.Register(r)
+	r.HandleFunc("/private", func(w http.ResponseWriter, req *http.Request) {
+		_, _ = w.Write([]byte(UserOf(req)))
+	})
+	return g.Wrap(r)
+}
