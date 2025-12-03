@@ -77,3 +77,53 @@ func TestEmptySpecDisablesAuthentication(t *testing.T) {
 		t.Fatal("an empty account spec should leave the rApp unauthenticated")
 	}
 }
+
+func TestMalformedSpecIsRejected(t *testing.T) {
+	if _, err := NewGuard("operator:not-a-bcrypt-hash", quietLogger()); err == nil {
+		t.Fatal("expected an error for a non-bcrypt hash")
+	}
+	if _, err := NewGuard("missing-hash", quietLogger()); err == nil {
+		t.Fatal("expected an error for an entry without a hash")
+	}
+}
+
+func TestLoginGrantsAccessToProtectedRoute(t *testing.T) {
+	g := newTestGuard(t)
+	h := protectedServer(g)
+
+	resp := login(t, h, `{"username":"operator","password":"correct-horse"}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("login status = %d, want 200", resp.StatusCode)
+	}
+
+	cookies := resp.Cookies()
+	if len(cookies) == 0 || cookies[0].Name != CookieName {
+		t.Fatal("login should set the session cookie")
+	}
+	if !cookies[0].HttpOnly {
+		t.Error("session cookie must be HttpOnly")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/private", nil)
+	req.AddCookie(cookies[0])
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("protected route status = %d, want 200", rec.Code)
+	}
+	if rec.Body.String() != "operator" {
+		t.Errorf("handler saw user %q, want operator", rec.Body.String())
+	}
+}
+
+func TestProtectedRouteRejectsAnonymous(t *testing.T) {
+	h := protectedServer(newTestGuard(t))
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/private", nil))
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+}
