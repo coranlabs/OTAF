@@ -58,3 +58,22 @@ func protectedServer(g *Guard) http.Handler {
 	})
 	return g.Wrap(r)
 }
+
+func login(t *testing.T, h http.Handler, body string) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
+	req.RemoteAddr = "10.0.0.1:5000"
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec.Result()
+}
+
+func TestEmptySpecDisablesAuthentication(t *testing.T) {
+	g, err := NewGuard("  ", quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g != nil {
+		t.Fatal("an empty account spec should leave the rApp unauthenticated")
+	}
+}
