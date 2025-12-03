@@ -33,3 +33,19 @@ func quietLogger() *logrus.Logger {
 type nopWriter struct{}
 
 func (nopWriter) Write(p []byte) (int, error) { return len(p), nil }
+
+func newTestGuard(t *testing.T, opts ...Option) *Guard {
+	t.Helper()
+	hash, err := Hash("correct-horse")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := NewGuard("operator:"+hash, quietLogger(), opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g == nil {
+		t.Fatal("guard should not be nil for a valid account spec")
+	}
+	return g
+}
