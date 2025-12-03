@@ -127,3 +127,36 @@ func TestProtectedRouteRejectsAnonymous(t *testing.T) {
 		t.Errorf("status = %d, want 401", rec.Code)
 	}
 }
+
+func TestPlatformPathsStayOpen(t *testing.T) {
+	g := newTestGuard(t)
+	r := mux.NewRouter()
+	for _, p := range []string{"/health", "/status", "/metrics", "/r1/producer-health"} {
+		r.HandleFunc(p, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	}
+	h := g.Wrap(r)
+
+	for _, p := range []string{"/health", "/status", "/metrics", "/r1/producer-health"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s status = %d, want 200: platform endpoints must not need a session", p, rec.Code)
+		}
+	}
+}
+
+func TestRepeatedFailuresLockTheCaller(t *testing.T) {
+	h := protectedServer(newTestGuard(t))
+
+	for i := 0; i < maxLoginFails; i++ {
+		resp := login(t, h, `{"username":"operator","password":"wrong"}`)
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("attempt %d status = %d, want 401", i, resp.StatusCode)
+		}
+	}
+
+	resp := login(t, h, `{"username":"operator","password":"correct-horse"}`)
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("status after repeated failures = %d, want 429", resp.StatusCode)
+	}
+}
