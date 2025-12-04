@@ -33,3 +33,13 @@ type Message struct {
 	Payload  []byte
 	Received time.Time
 }
+
+type HandlerFunc func(ctx context.Context, m Message) error
+
+const (
+	// OverflowBlock applies backpressure to the source. Correct whenever
+	// losing a report would corrupt the rApp's view of the network.
+	OverflowBlock Overflow = iota
+	// OverflowDrop keeps the newest data flowing and counts the losses.
+	OverflowDrop
+)
