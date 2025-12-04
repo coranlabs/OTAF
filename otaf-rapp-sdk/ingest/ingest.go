@@ -69,6 +69,10 @@ type Observer interface {
 
 type ObserverFunc func(source string, d time.Duration, err error)
 
+func (f ObserverFunc) Handled(source string, d time.Duration, err error) { f(source, d, err) }
+
+func WithObserver(o Observer) Option { return func(p *Pipeline) { p.observer = o } }
+
 type Stats struct {
 	Queued    int    `json:"queued"`
 	Capacity  int    `json:"capacity"`
