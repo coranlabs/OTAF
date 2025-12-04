@@ -125,6 +125,20 @@ func WithOverflow(o Overflow) Option { return func(p *Pipeline) { p.overflow = o
 
 func WithLogger(l *logrus.Logger) Option { return func(p *Pipeline) { p.logger = l } }
 
+func NewPipeline(h Handler, opts ...Option) *Pipeline {
+	p := &Pipeline{
+		handler: h,
+		ch:      make(chan Message, 256),
+		workers: 1,
+	}
+	for _, o := range opts {
+		o(p)
+	}
+	return p
+}
+
+func (p *Pipeline) AddSource(s Source) { p.sources = append(p.sources, s) }
+
 func (p *Pipeline) Stats() Stats {
 	return Stats{
 		Queued:    len(p.ch),
