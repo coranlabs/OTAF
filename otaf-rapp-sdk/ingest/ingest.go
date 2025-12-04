@@ -111,6 +111,20 @@ func WithBuffer(n int) Option {
 	}
 }
 
+// WithWorkers runs n handlers concurrently. Leave it at 1 when the handler
+// keeps ordered state, which is the usual case for KPI-driven logic.
+func WithWorkers(n int) Option {
+	return func(p *Pipeline) {
+		if n > 0 {
+			p.workers = n
+		}
+	}
+}
+
+func WithOverflow(o Overflow) Option { return func(p *Pipeline) { p.overflow = o } }
+
+func WithLogger(l *logrus.Logger) Option { return func(p *Pipeline) { p.logger = l } }
+
 func (p *Pipeline) Stats() Stats {
 	return Stats{
 		Queued:    len(p.ch),
