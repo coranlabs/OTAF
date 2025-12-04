@@ -103,6 +103,14 @@ type Pipeline struct {
 
 type Option func(*Pipeline)
 
+func WithBuffer(n int) Option {
+	return func(p *Pipeline) {
+		if n > 0 {
+			p.ch = make(chan Message, n)
+		}
+	}
+}
+
 func (p *Pipeline) Stats() Stats {
 	return Stats{
 		Queued:    len(p.ch),
