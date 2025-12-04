@@ -45,3 +45,40 @@ const (
 )
 
 type ObserverFunc func(source string, d time.Duration, err error)
+
+type Stats struct {
+	Queued    int    `json:"queued"`
+	Capacity  int    `json:"capacity"`
+	Accepted  uint64 `json:"accepted"`
+	Dropped   uint64 `json:"dropped"`
+	Failed    uint64 `json:"failed"`
+	Processed uint64 `json:"processed"`
+}
+
+type Pipeline struct {
+	handler  Handler
+	logger   *logrus.Logger
+	observer Observer
+	sources  []Source
+	ch       chan Message
+	workers  int
+	overflow Overflow
+
+	accepted  atomic.Uint64
+	dropped   atomic.Uint64
+	failed    atomic.Uint64
+	processed atomic.Uint64
+}
+
+type Option func(*Pipeline)
+
+func (p *Pipeline) Stats() Stats {
+	return Stats{
+		Queued:    len(p.ch),
+		Capacity:  cap(p.ch),
+		Accepted:  p.accepted.Load(),
+		Dropped:   p.dropped.Load(),
+		Failed:    p.failed.Load(),
+		Processed: p.processed.Load(),
+	}
+}
