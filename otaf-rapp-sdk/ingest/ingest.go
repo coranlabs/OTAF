@@ -73,6 +73,10 @@ func (f ObserverFunc) Handled(source string, d time.Duration, err error) { f(sou
 
 func WithObserver(o Observer) Option { return func(p *Pipeline) { p.observer = o } }
 
+// SetObserver attaches an observer after construction, which is how the app
+// wires its metrics into a pipeline the rApp built itself.
+func (p *Pipeline) SetObserver(o Observer) { p.observer = o }
+
 type Stats struct {
 	Queued    int    `json:"queued"`
 	Capacity  int    `json:"capacity"`
