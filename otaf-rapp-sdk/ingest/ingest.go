@@ -61,6 +61,12 @@ const (
 	OverflowDrop
 )
 
+// Observer is told about each pass through the handler. It exists so timing
+// can be recorded without this package knowing anything about metrics.
+type Observer interface {
+	Handled(source string, d time.Duration, err error)
+}
+
 type ObserverFunc func(source string, d time.Duration, err error)
 
 type Stats struct {
