@@ -50,6 +50,9 @@ type HandlerFunc func(ctx context.Context, m Message) error
 
 func (f HandlerFunc) Handle(ctx context.Context, m Message) error { return f(ctx, m) }
 
+// Overflow decides what a full pipeline does with a new message.
+type Overflow int
+
 const (
 	// OverflowBlock applies backpressure to the source. Correct whenever
 	// losing a report would corrupt the rApp's view of the network.
