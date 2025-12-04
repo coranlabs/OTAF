@@ -43,3 +43,5 @@ const (
 	// OverflowDrop keeps the newest data flowing and counts the losses.
 	OverflowDrop
 )
+
+type ObserverFunc func(source string, d time.Duration, err error)
