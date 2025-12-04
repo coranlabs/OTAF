@@ -34,7 +34,21 @@ type Message struct {
 	Received time.Time
 }
 
+// Source feeds a pipeline until its context is cancelled. Returning nil means
+// the source finished cleanly; any error is logged and ends that source only.
+type Source interface {
+	Name() string
+	Run(ctx context.Context, out chan<- Message) error
+}
+
+// Handler is where an rApp's own logic lives.
+type Handler interface {
+	Handle(ctx context.Context, m Message) error
+}
+
 type HandlerFunc func(ctx context.Context, m Message) error
+
+func (f HandlerFunc) Handle(ctx context.Context, m Message) error { return f(ctx, m) }
 
 const (
 	// OverflowBlock applies backpressure to the source. Correct whenever
