@@ -28,6 +28,22 @@ type recorder struct {
 	fail bool
 }
 
+func (r *recorder) Handle(_ context.Context, m Message) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.fail {
+		return errors.New("refused")
+	}
+	r.seen = append(r.seen, m)
+	return nil
+}
+
+func (r *recorder) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.seen)
+}
+
 type burst struct {
 	messages []Message
 }
