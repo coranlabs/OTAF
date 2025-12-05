@@ -49,3 +49,26 @@ type burst struct {
 }
 
 func (b *burst) Name() string { return "burst" }
+
+func (b *burst) Run(ctx context.Context, out chan<- Message) error {
+	for _, m := range b.messages {
+		select {
+		case out <- m:
+		case <-ctx.Done():
+			return nil
+		}
+	}
+	return nil
+}
+
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("condition not met before the deadline")
+}
