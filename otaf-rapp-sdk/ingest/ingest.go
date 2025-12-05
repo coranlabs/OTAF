@@ -182,3 +182,49 @@ func (p *Pipeline) Stats() Stats {
 		Processed: p.processed.Load(),
 	}
 }
+
+// Run starts every source and the worker pool, and returns once ctx is done
+// and the queue has drained.
+func (p *Pipeline) Run(ctx context.Context) error {
+	var sources sync.WaitGroup
+	for _, s := range p.sources {
+		sources.Add(1)
+		go func(s Source) {
+			defer sources.Done()
+
+			// Everything a source produces goes through Submit, so counting
+			// and the overflow policy work the same however a message arrived.
+			feed := make(chan Message)
+			var pump sync.WaitGroup
+			pump.Add(1)
+			go func() {
+				defer pump.Done()
+				for m := range feed {
+					p.Submit(ctx, m)
+				}
+			}()
+
+			err := s.Run(ctx, feed)
+			close(feed)
+			pump.Wait()
+
+			if err != nil && ctx.Err() == nil && p.logger != nil {
+				p.logger.WithError(err).WithField("source", s.Name()).Error("ingest source stopped")
+			}
+		}(s)
+	}
+
+	var workers sync.WaitGroup
+	for i := 0; i < p.workers; i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			p.consume(ctx)
+		}()
+	}
+
+	sources.Wait()
+	<-ctx.Done()
+	workers.Wait()
+	return nil
+}
