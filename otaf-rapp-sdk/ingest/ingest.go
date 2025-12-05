@@ -139,6 +139,39 @@ func NewPipeline(h Handler, opts ...Option) *Pipeline {
 
 func (p *Pipeline) AddSource(s Source) { p.sources = append(p.sources, s) }
 
+// Sources lets the app wire up any source that also serves HTTP endpoints.
+func (p *Pipeline) Sources() []Source { return p.sources }
+
+// Submit hands a message to the pipeline. It reports false only when the
+// message was dropped under OverflowDrop or the pipeline is shutting down.
+func (p *Pipeline) Submit(ctx context.Context, m Message) bool {
+	if m.Received.IsZero() {
+		m.Received = time.Now()
+	}
+	switch p.overflow {
+	case OverflowDrop:
+		select {
+		case p.ch <- m:
+			p.accepted.Add(1)
+			return true
+		default:
+			p.dropped.Add(1)
+			if p.logger != nil {
+				p.logger.WithField("source", m.Source).Warn("ingest queue full, message dropped")
+			}
+			return false
+		}
+	default:
+		select {
+		case p.ch <- m:
+			p.accepted.Add(1)
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
 func (p *Pipeline) Stats() Stats {
 	return Stats{
 		Queued:    len(p.ch),
