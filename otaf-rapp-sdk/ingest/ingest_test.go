@@ -196,3 +196,13 @@ func TestHandlerFailuresAreCounted(t *testing.T) {
 		t.Error("a failed message must not count as processed")
 	}
 }
+
+func TestSubmitStampsReceivedTime(t *testing.T) {
+	p := NewPipeline(&recorder{}, WithBuffer(1))
+	p.Submit(context.Background(), Message{Payload: []byte("x")})
+
+	m := <-p.ch
+	if m.Received.IsZero() {
+		t.Error("submit should stamp the arrival time when the caller left it unset")
+	}
+}
