@@ -131,3 +131,46 @@ func TestSourceMessagesHonourTheOverflowPolicy(t *testing.T) {
 		t.Error("some messages should have been accepted")
 	}
 }
+
+func TestSubmitDropsWhenFullAndCounts(t *testing.T) {
+	p := NewPipeline(&recorder{}, WithBuffer(1), WithOverflow(OverflowDrop))
+	ctx := context.Background()
+
+	if !p.Submit(ctx, Message{Payload: []byte("first")}) {
+		t.Fatal("first message should be accepted")
+	}
+	if p.Submit(ctx, Message{Payload: []byte("second")}) {
+		t.Fatal("second message should be dropped once the buffer is full")
+	}
+
+	stats := p.Stats()
+	if stats.Accepted != 1 || stats.Dropped != 1 {
+		t.Errorf("accepted/dropped = %d/%d, want 1/1", stats.Accepted, stats.Dropped)
+	}
+}
+
+func TestSubmitBlocksUntilContextEnds(t *testing.T) {
+	p := NewPipeline(&recorder{}, WithBuffer(1))
+	ctx, cancel := context.WithCancel(context.Background())
+
+	if !p.Submit(ctx, Message{Payload: []byte("first")}) {
+		t.Fatal("first message should be accepted")
+	}
+
+	result := make(chan bool, 1)
+	go func() { result <- p.Submit(ctx, Message{Payload: []byte("second")}) }()
+
+	select {
+	case <-result:
+		t.Fatal("submit returned while the buffer was full")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	cancel()
+	if <-result {
+		t.Error("submit should report failure once the context ends")
+	}
+	if p.Stats().Dropped != 0 {
+		t.Error("blocking mode must not drop messages")
+	}
+}
