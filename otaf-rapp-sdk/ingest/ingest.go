@@ -228,3 +228,48 @@ func (p *Pipeline) Run(ctx context.Context) error {
 	workers.Wait()
 	return nil
 }
+
+func (p *Pipeline) consume(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			p.drain()
+			return
+		case m := <-p.ch:
+			p.dispatch(ctx, m)
+		}
+	}
+}
+
+func (p *Pipeline) drain() {
+	for {
+		select {
+		case m := <-p.ch:
+			p.dispatch(context.Background(), m)
+		default:
+			return
+		}
+	}
+}
+
+func (p *Pipeline) dispatch(ctx context.Context, m Message) {
+	if p.handler == nil {
+		return
+	}
+
+	started := time.Now()
+	err := p.handler.Handle(ctx, m)
+	if p.observer != nil {
+		p.observer.Handled(m.Source, time.Since(started), err)
+	}
+
+	if err != nil {
+		p.failed.Add(1)
+		// Logged at the level its severity calls for, carrying the
+		// classification, so failures are greppable by kind rather than only
+		// by the text of a message.
+		log.FailureWith(p.logger, err, "handler failed", map[string]any{"source": m.Source})
+		return
+	}
+	p.processed.Add(1)
+}
