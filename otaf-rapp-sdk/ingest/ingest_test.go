@@ -47,3 +47,5 @@ func (r *recorder) count() int {
 type burst struct {
 	messages []Message
 }
+
+func (b *burst) Name() string { return "burst" }
