@@ -72,3 +72,62 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 	t.Fatal("condition not met before the deadline")
 }
+
+func TestPipelineDeliversFromSource(t *testing.T) {
+	h := &recorder{}
+	p := NewPipeline(h, WithBuffer(8))
+	p.AddSource(&burst{messages: []Message{
+		{Source: "burst", Payload: []byte("one")},
+		{Source: "burst", Payload: []byte("two")},
+	}})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		_ = p.Run(ctx)
+		close(done)
+	}()
+
+	waitFor(t, func() bool { return h.count() == 2 })
+	cancel()
+	<-done
+
+	stats := p.Stats()
+	if stats.Processed != 2 {
+		t.Errorf("processed = %d, want 2", stats.Processed)
+	}
+	// Messages from a source must be counted the same as submitted ones, or
+	// the accepted total silently excludes the normal path.
+	if stats.Accepted != 2 {
+		t.Errorf("accepted = %d, want 2", stats.Accepted)
+	}
+}
+
+func TestSourceMessagesHonourTheOverflowPolicy(t *testing.T) {
+	h := &recorder{}
+	p := NewPipeline(h, WithBuffer(1), WithOverflow(OverflowDrop))
+
+	many := make([]Message, 50)
+	for i := range many {
+		many[i] = Message{Source: "burst", Payload: []byte("x")}
+	}
+	p.AddSource(&burst{messages: many})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		_ = p.Run(ctx)
+		close(done)
+	}()
+
+	waitFor(t, func() bool {
+		s := p.Stats()
+		return s.Accepted+s.Dropped == uint64(len(many))
+	})
+	cancel()
+	<-done
+
+	if p.Stats().Accepted == 0 {
+		t.Error("some messages should have been accepted")
+	}
+}
