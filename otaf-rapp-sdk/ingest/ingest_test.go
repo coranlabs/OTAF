@@ -174,3 +174,25 @@ func TestSubmitBlocksUntilContextEnds(t *testing.T) {
 		t.Error("blocking mode must not drop messages")
 	}
 }
+
+func TestHandlerFailuresAreCounted(t *testing.T) {
+	h := &recorder{fail: true}
+	p := NewPipeline(h, WithBuffer(4))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		_ = p.Run(ctx)
+		close(done)
+	}()
+
+	p.Submit(ctx, Message{Payload: []byte("one")})
+	waitFor(t, func() bool { return p.Stats().Failed == 1 })
+
+	cancel()
+	<-done
+
+	if p.Stats().Processed != 0 {
+		t.Error("a failed message must not count as processed")
+	}
+}
