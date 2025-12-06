@@ -17,6 +17,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `health` | Dependency probes evaluated behind readiness, logged on state transitions only |
 | `metrics` | Prometheus exposition, derived from live snapshots at scrape time |
 | `auth` | Operator accounts, server-side sessions, and an authorisation guard that exempts platform paths |
+| `ingest` | Multiple sources feeding a single handler, with backpressure and counters |
 
 ## Licence
 
