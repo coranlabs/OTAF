@@ -68,3 +68,31 @@ func TestAcceptedDeliveryReachesThePipeline(t *testing.T) {
 		t.Fatal("the message never reached the pipeline")
 	}
 }
+
+// Acknowledging data that was then discarded is worse than asking the sender
+// to try again, because the sender has no way to know it was lost.
+func TestFullBufferIsRefusedRatherThanAcknowledged(t *testing.T) {
+	s := New("/data", WithBuffer(1))
+	h := serve(s)
+
+	if rec := post(t, h, "/data", `{"n":1}`); rec.Code != http.StatusAccepted {
+		t.Fatalf("first delivery status = %d, want 202", rec.Code)
+	}
+
+	rec := post(t, h, "/data", `{"n":2}`)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503 once the buffer is full", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "retry") {
+		t.Errorf("body = %q, want it to tell the sender to retry", rec.Body.String())
+	}
+}
+
+func TestOversizedBodyIsRejected(t *testing.T) {
+	s := New("/data", WithMaxBytes(16))
+	rec := post(t, serve(s), "/data", strings.Repeat("x", 128))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 for a body over the limit", rec.Code)
+	}
+}
