@@ -39,3 +39,32 @@ func post(t *testing.T, h http.Handler, path, body string) *httptest.ResponseRec
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, strings.NewReader(body)))
 	return rec
 }
+
+func TestAcceptedDeliveryReachesThePipeline(t *testing.T) {
+	s := New("/data")
+	rec := post(t, serve(s), "/data", `{"id":"c1"}`)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202", rec.Code)
+	}
+
+	out := make(chan ingest.Message, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { _ = s.Run(ctx, out) }()
+	defer cancel()
+
+	select {
+	case m := <-out:
+		if string(m.Payload) != `{"id":"c1"}` {
+			t.Errorf("payload = %s, want what was posted", m.Payload)
+		}
+		if m.Source != "http/data" {
+			t.Errorf("source = %q, want http/data", m.Source)
+		}
+		if m.Received.IsZero() {
+			t.Error("arrival time should be stamped")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("the message never reached the pipeline")
+	}
+}
