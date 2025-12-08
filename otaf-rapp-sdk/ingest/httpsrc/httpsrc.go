@@ -73,3 +73,15 @@ func New(path string, opts ...Option) *Source {
 }
 
 func (s *Source) Name() string { return "http" + s.path }
+
+func (s *Source) Path() string { return s.path }
+
+// Register wires the receiving endpoint. The app calls this for every source
+// that implements it, before the server starts listening.
+func (s *Source) Register(r *mux.Router) {
+	r.HandleFunc(s.path, s.serve).Methods(http.MethodPost)
+}
+
+// Open marks the receiving endpoint as reachable without a session, since the
+// pushing side is a platform component, not an operator.
+func (s *Source) Open() []string { return []string{s.path} }
