@@ -96,3 +96,36 @@ func TestOversizedBodyIsRejected(t *testing.T) {
 		t.Errorf("status = %d, want 400 for a body over the limit", rec.Code)
 	}
 }
+
+// The endpoint is reached by a platform component, not an operator, so it must
+// not sit behind the operator guard.
+func TestPathIsDeclaredOpen(t *testing.T) {
+	s := New("/data")
+
+	open := s.Open()
+	if len(open) != 1 || open[0] != "/data" {
+		t.Errorf("open paths = %v, want the receiving path", open)
+	}
+	if s.Path() != "/data" {
+		t.Errorf("path = %q, want /data", s.Path())
+	}
+}
+
+func TestJobQueryBecomesTheMessageKey(t *testing.T) {
+	s := New("/data")
+	post(t, serve(s), "/data?job=job-7", `{}`)
+
+	out := make(chan ingest.Message, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { _ = s.Run(ctx, out) }()
+	defer cancel()
+
+	select {
+	case m := <-out:
+		if m.Key != "job-7" {
+			t.Errorf("key = %q, want the job that delivered it", m.Key)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("the message never arrived")
+	}
+}
