@@ -85,3 +85,32 @@ func (s *Source) Register(r *mux.Router) {
 // Open marks the receiving endpoint as reachable without a session, since the
 // pushing side is a platform component, not an operator.
 func (s *Source) Open() []string { return []string{s.path} }
+
+func (s *Source) serve(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, s.maxBytes))
+	if err != nil {
+		http.Error(w, `{"error":"unreadable body"}`, http.StatusBadRequest)
+		return
+	}
+
+	msg := ingest.Message{
+		Source:   s.Name(),
+		Key:      r.URL.Query().Get("job"),
+		Payload:  body,
+		Received: time.Now(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	select {
+	case s.relay <- msg:
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"status":"accepted"}`))
+	default:
+		// Telling the sender to retry beats acknowledging data we discarded.
+		if s.logger != nil {
+			s.logger.WithField("path", s.path).Warn("receive buffer full, rejecting delivery")
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":"busy, retry"}`))
+	}
+}
