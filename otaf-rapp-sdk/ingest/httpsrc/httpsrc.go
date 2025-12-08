@@ -39,3 +39,15 @@ type Source struct {
 	logger   *logrus.Logger
 	relay    chan ingest.Message
 }
+
+type Option func(*Source)
+
+func WithMaxBytes(n int64) Option {
+	return func(s *Source) {
+		if n > 0 {
+			s.maxBytes = n
+		}
+	}
+}
+
+func WithLogger(l *logrus.Logger) Option { return func(s *Source) { s.logger = l } }
