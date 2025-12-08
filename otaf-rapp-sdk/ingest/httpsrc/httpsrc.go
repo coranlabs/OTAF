@@ -51,3 +51,25 @@ func WithMaxBytes(n int64) Option {
 }
 
 func WithLogger(l *logrus.Logger) Option { return func(s *Source) { s.logger = l } }
+
+func WithBuffer(n int) Option {
+	return func(s *Source) {
+		if n > 0 {
+			s.relay = make(chan ingest.Message, n)
+		}
+	}
+}
+
+func New(path string, opts ...Option) *Source {
+	s := &Source{
+		path:     path,
+		maxBytes: defaultMaxBytes,
+		relay:    make(chan ingest.Message, defaultRelay),
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
+}
+
+func (s *Source) Name() string { return "http" + s.path }
