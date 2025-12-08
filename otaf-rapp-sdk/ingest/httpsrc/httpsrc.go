@@ -114,3 +114,18 @@ func (s *Source) serve(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"error":"busy, retry"}`))
 	}
 }
+
+func (s *Source) Run(ctx context.Context, out chan<- ingest.Message) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case m := <-s.relay:
+			select {
+			case out <- m:
+			case <-ctx.Done():
+				return nil
+			}
+		}
+	}
+}
