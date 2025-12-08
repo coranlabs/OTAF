@@ -32,3 +32,10 @@ func serve(s *Source) http.Handler {
 	s.Register(r)
 	return r
 }
+
+func post(t *testing.T, h http.Handler, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, strings.NewReader(body)))
+	return rec
+}
