@@ -90,3 +90,48 @@ func New(cfg Config, logger *logrus.Logger) (*Source, error) {
 
 	return &Source{cfg: cfg, reader: reader, logger: logger}, nil
 }
+
+func (s *Source) Name() string { return "kafka:" + s.cfg.Topic }
+
+func (s *Source) Run(ctx context.Context, out chan<- ingest.Message) error {
+	defer s.reader.Close()
+
+	s.logger.WithFields(logrus.Fields{
+		"topic":   s.cfg.Topic,
+		"group":   s.cfg.Group,
+		"brokers": s.cfg.Brokers,
+	}).Info("kafka source started")
+
+	for {
+		msg, err := s.reader.FetchMessage(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
+			s.logger.WithError(err).Error("kafka fetch failed")
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(5 * time.Second):
+			}
+			continue
+		}
+
+		select {
+		case out <- ingest.Message{
+			Source:   s.Name(),
+			Key:      string(msg.Key),
+			Payload:  msg.Value,
+			Received: time.Now(),
+		}:
+		case <-ctx.Done():
+			return nil
+		}
+
+		// Committing only after the message is queued keeps an rApp restart
+		// from silently skipping reports it never processed.
+		if err := s.reader.CommitMessages(ctx, msg); err != nil && ctx.Err() == nil {
+			s.logger.WithError(err).Warn("kafka commit failed")
+		}
+	}
+}
