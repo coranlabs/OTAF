@@ -89,3 +89,7 @@ const (
 	CodeNotMeasurement = "PM_NOT_A_MEASUREMENT_FILE"
 	CodeNoPerfEvents   = "PM_NO_PERF_EVENTS"
 )
+
+// ErrUnknownFormat matches any failure to recognise the encoding. Compare with
+// errors.Is rather than by identity.
+var ErrUnknownFormat = badData(CodeUnknownFormat, "unrecognised format")
