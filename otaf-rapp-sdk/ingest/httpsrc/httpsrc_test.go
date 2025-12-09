@@ -129,3 +129,21 @@ func TestJobQueryBecomesTheMessageKey(t *testing.T) {
 		t.Fatal("the message never arrived")
 	}
 }
+
+func TestRunStopsWithTheContext(t *testing.T) {
+	s := New("/data")
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() { done <- s.Run(ctx, make(chan ingest.Message)) }()
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("Run returned %v, want a clean stop", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Run did not stop when the context ended")
+	}
+}
