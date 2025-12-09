@@ -36,3 +36,57 @@ type Config struct {
 	Username string   `yaml:"username" env:"KAFKA_USERNAME"`
 	Password string   `yaml:"password" env:"KAFKA_PASSWORD"`
 }
+
+func (c Config) Validate() error {
+	if len(c.Brokers) == 0 {
+		return errs.New(errs.CategoryConfig, "KAFKA_NO_BROKERS",
+			"kafka: no brokers configured")
+	}
+	if c.Topic == "" {
+		return errs.New(errs.CategoryConfig, "KAFKA_NO_TOPIC",
+			"kafka: no topic configured")
+	}
+	return nil
+}
+
+type Source struct {
+	cfg    Config
+	reader *kafka.Reader
+	logger *logrus.Logger
+}
+
+func New(cfg Config, logger *logrus.Logger) (*Source, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Group == "" {
+		cfg.Group = "rapp-consumer"
+	}
+
+	dialer := &kafka.Dialer{Timeout: 30 * time.Second, DualStack: true}
+	if cfg.Username != "" && cfg.Password != "" {
+		var mechanism sasl.Mechanism
+		mechanism, err := scram.Mechanism(scram.SHA512, cfg.Username, cfg.Password)
+		if err != nil {
+			return nil, errs.Wrap(err, errs.CategoryConfig, "KAFKA_BAD_CREDENTIALS",
+				"kafka: could not set up SCRAM-SHA-512")
+		}
+		dialer.SASLMechanism = mechanism
+	}
+
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:        cfg.Brokers,
+		Topic:          cfg.Topic,
+		GroupID:        cfg.Group,
+		Dialer:         dialer,
+		MinBytes:       1,
+		MaxBytes:       10 << 20,
+		MaxWait:        10 * time.Second,
+		CommitInterval: 5 * time.Second,
+		StartOffset:    kafka.LastOffset,
+		Logger:         kafka.LoggerFunc(func(m string, a ...interface{}) { logger.Debugf(m, a...) }),
+		ErrorLogger:    kafka.LoggerFunc(func(m string, a ...interface{}) { logger.Errorf(m, a...) }),
+	})
+
+	return &Source{cfg: cfg, reader: reader, logger: logger}, nil
+}
