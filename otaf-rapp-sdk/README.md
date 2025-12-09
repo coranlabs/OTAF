@@ -19,6 +19,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `auth` | Operator accounts, server-side sessions, and an authorisation guard that exempts platform paths |
 | `ingest` | Multiple sources feeding a single handler, with backpressure and counters |
 | `ingest/httpsrc` | HTTP source for data delivered by a DME job |
+| `ingest/kafkasrc` | Kafka source with SASL/SCRAM authentication |
 
 ## Licence
 
