@@ -93,3 +93,9 @@ const (
 // ErrUnknownFormat matches any failure to recognise the encoding. Compare with
 // errors.Is rather than by identity.
 var ErrUnknownFormat = badData(CodeUnknownFormat, "unrecognised format")
+
+// Everything this package rejects is bad data, and bad data does not improve
+// on a second attempt. Saying so here means callers do not have to.
+func badData(code, format string, args ...any) *errs.Error {
+	return errs.Newf(errs.CategoryData, code, "pm: "+format, args...).Permanent()
+}
