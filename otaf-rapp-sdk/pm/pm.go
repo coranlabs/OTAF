@@ -59,3 +59,33 @@ type Report struct {
 
 	Measurements []Measurement `json:"measurements"`
 }
+
+// Measurement is the set of counters read from one object over one period.
+type Measurement struct {
+	// Group is the measurement family, from measInfoId.
+	Group string `json:"group,omitempty"`
+
+	// Object is the distinguished name of what was measured, which is what an
+	// rApp keys its per-entity state on.
+	Object string `json:"object"`
+
+	// Suspect marks data the element itself flagged as unreliable, usually
+	// because the collection period was disturbed. Acting on it is a choice.
+	Suspect bool `json:"suspect,omitempty"`
+
+	At          time.Time     `json:"at,omitempty"`
+	Granularity time.Duration `json:"granularity,omitempty"`
+
+	// Counters are kept as written. Both encodings carry values as text, and
+	// some counters are not numbers at all.
+	Counters map[string]string `json:"counters"`
+}
+
+// Codes carried by every failure this package returns. They are stable, so an
+// rApp can branch on them and an operator can search for them.
+const (
+	CodeUnknownFormat  = "PM_UNKNOWN_FORMAT"
+	CodeDecodeFailed   = "PM_DECODE_FAILED"
+	CodeNotMeasurement = "PM_NOT_A_MEASUREMENT_FILE"
+	CodeNoPerfEvents   = "PM_NO_PERF_EVENTS"
+)
