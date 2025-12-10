@@ -99,3 +99,39 @@ var ErrUnknownFormat = badData(CodeUnknownFormat, "unrecognised format")
 func badData(code, format string, args ...any) *errs.Error {
 	return errs.Newf(errs.CategoryData, code, "pm: "+format, args...).Permanent()
 }
+
+func wrapBadData(cause error, code, format string, args ...any) *errs.Error {
+	return errs.Wrapf(cause, errs.CategoryData, code, "pm: "+format, args...).Permanent()
+}
+
+// Parse decodes whichever standard form the data is in.
+func Parse(data []byte) ([]*Report, error) {
+	switch sniff(data) {
+	case FormatXML:
+		report, err := ParseXML(data)
+		if err != nil {
+			return nil, err
+		}
+		return []*Report{report}, nil
+	case FormatVES:
+		return ParseVES(data)
+	default:
+		return nil, badData(CodeUnknownFormat, "unrecognised format")
+	}
+}
+
+func sniff(data []byte) Format {
+	for _, b := range data {
+		switch b {
+		case ' ', '\t', '\r', '\n':
+			continue
+		case '<':
+			return FormatXML
+		case '{', '[':
+			return FormatVES
+		default:
+			return ""
+		}
+	}
+	return ""
+}
