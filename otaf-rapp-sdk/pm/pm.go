@@ -246,3 +246,14 @@ func (r *Report) For(object string) []Measurement {
 	}
 	return out
 }
+
+// Group returns every measurement in one family.
+func (r *Report) Group(group string) []Measurement {
+	var out []Measurement
+	for _, m := range r.Measurements {
+		if m.Group == group {
+			out = append(out, m)
+		}
+	}
+	return out
+}
