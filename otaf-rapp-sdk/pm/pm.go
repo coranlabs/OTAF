@@ -159,3 +159,53 @@ func (m Measurement) FloatOr(name string, fallback float64) float64 {
 	}
 	return fallback
 }
+
+// Int reads a counter as a whole number.
+func (m Measurement) Int(name string) (int64, bool) {
+	raw, ok := m.Counters[name]
+	if !ok {
+		return 0, false
+	}
+	raw = strings.TrimSpace(raw)
+	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return n, true
+	}
+	// Some elements write whole numbers with a decimal part.
+	if f, ok := parseFloat(raw); ok {
+		return int64(f), true
+	}
+	return 0, false
+}
+
+// Sum adds several counters, ignoring any that are absent. It reports false
+// when none of them were present at all.
+func (m Measurement) Sum(names ...string) (float64, bool) {
+	var total float64
+	var found bool
+	for _, name := range names {
+		if v, ok := m.Float(name); ok {
+			total += v
+			found = true
+		}
+	}
+	return total, found
+}
+
+// Distribution reads a counter written as a comma-separated list, which is how
+// both encodings carry histogram buckets.
+func (m Measurement) Distribution(name string) ([]float64, bool) {
+	raw, ok := m.Counters[name]
+	if !ok {
+		return nil, false
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]float64, 0, len(parts))
+	for _, p := range parts {
+		v, ok := parseFloat(p)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, v)
+	}
+	return out, len(out) > 0
+}
