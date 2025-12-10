@@ -135,3 +135,27 @@ func sniff(data []byte) Format {
 	}
 	return ""
 }
+
+// Get returns a counter as written.
+func (m Measurement) Get(name string) (string, bool) {
+	v, ok := m.Counters[name]
+	return v, ok
+}
+
+// Float reads a counter as a number. Values the element could not supply are
+// written as "NaN" or left empty by both encodings, and report false here.
+func (m Measurement) Float(name string) (float64, bool) {
+	raw, ok := m.Counters[name]
+	if !ok {
+		return 0, false
+	}
+	return parseFloat(raw)
+}
+
+// FloatOr reads a counter, falling back when it is absent or not a number.
+func (m Measurement) FloatOr(name string, fallback float64) float64 {
+	if v, ok := m.Float(name); ok {
+		return v
+	}
+	return fallback
+}
