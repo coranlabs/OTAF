@@ -209,3 +209,40 @@ func (m Measurement) Distribution(name string) ([]float64, bool) {
 	}
 	return out, len(out) > 0
 }
+
+// Names lists the counters present, sorted.
+func (m Measurement) Names() []string {
+	out := make([]string, 0, len(m.Counters))
+	for name := range m.Counters {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Objects lists the measured objects in the report, sorted and deduplicated.
+func (r *Report) Objects() []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(r.Measurements))
+	for _, m := range r.Measurements {
+		if _, dup := seen[m.Object]; dup {
+			continue
+		}
+		seen[m.Object] = struct{}{}
+		out = append(out, m.Object)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// For returns every measurement describing one object. An element commonly
+// splits its counters across several groups, so one object has more than one.
+func (r *Report) For(object string) []Measurement {
+	var out []Measurement
+	for _, m := range r.Measurements {
+		if m.Object == object {
+			out = append(out, m)
+		}
+	}
+	return out
+}
