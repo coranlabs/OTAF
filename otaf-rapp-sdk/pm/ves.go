@@ -76,3 +76,60 @@ type measValueJSON struct {
 
 	MeasResults []measResultJSON `json:"measResults"`
 }
+
+type measResultJSON struct {
+	P      int             `json:"p"`
+	SValue string          `json:"sValue"`
+	IValue json.RawMessage `json:"iValue"`
+}
+
+// ParseVES decodes a VES event carrying the perf3gpp domain. Events in other
+// domains are skipped rather than rejected, since a topic commonly carries
+// more than one.
+func ParseVES(data []byte) ([]*Report, error) {
+	events, err := vesEvents(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var reports []*Report
+	for i := range events {
+		event := events[i]
+		if !strings.EqualFold(event.CommonEventHeader.Domain, "perf3gpp") &&
+			event.CommonEventHeader.Domain != "" {
+			continue
+		}
+		reports = append(reports, reportFromVES(event))
+	}
+
+	if len(reports) == 0 {
+		return nil, badData(CodeNoPerfEvents, "no perf3gpp events in payload")
+	}
+	return reports, nil
+}
+
+func vesEvents(data []byte) ([]vesEvent, error) {
+	trimmed := strings.TrimSpace(string(data))
+
+	if strings.HasPrefix(trimmed, "[") {
+		var batch []vesEnvelope
+		if err := json.Unmarshal(data, &batch); err != nil {
+			return nil, wrapBadData(err, CodeDecodeFailed, "could not decode the VES batch")
+		}
+		var events []vesEvent
+		for _, item := range batch {
+			events = append(events, item.events()...)
+		}
+		return events, nil
+	}
+
+	var envelope vesEnvelope
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return nil, wrapBadData(err, CodeDecodeFailed, "could not decode the VES event")
+	}
+	events := envelope.events()
+	if len(events) == 0 {
+		return nil, badData(CodeNoPerfEvents, "payload carries no VES event")
+	}
+	return events, nil
+}
