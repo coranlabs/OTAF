@@ -133,3 +133,13 @@ func vesEvents(data []byte) ([]vesEvent, error) {
 	}
 	return events, nil
 }
+
+func (e vesEnvelope) events() []vesEvent {
+	if len(e.EventList) > 0 {
+		return e.EventList
+	}
+	if e.Event != nil {
+		return []vesEvent{*e.Event}
+	}
+	return nil
+}
