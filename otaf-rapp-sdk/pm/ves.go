@@ -198,3 +198,53 @@ func vesCounterNames(types measTypesJSON) []string {
 	}
 	return names
 }
+
+func vesValue(r measResultJSON) string {
+	if r.SValue != "" {
+		return r.SValue
+	}
+	if len(r.IValue) > 0 {
+		return strings.Trim(strings.TrimSpace(string(r.IValue)), `"`)
+	}
+	return ""
+}
+
+func vesGroup(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		return asString
+	}
+	var wrapped struct {
+		SMeasInfoID string `json:"sMeasInfoId"`
+		IMeasInfoID int    `json:"iMeasInfoId"`
+	}
+	if err := json.Unmarshal(raw, &wrapped); err == nil {
+		if wrapped.SMeasInfoID != "" {
+			return wrapped.SMeasInfoID
+		}
+		if wrapped.IMeasInfoID != 0 {
+			return strconv.Itoa(wrapped.IMeasInfoID)
+		}
+	}
+	return ""
+}
+
+func granularityOf(raw json.RawMessage) time.Duration {
+	if len(raw) == 0 {
+		return 0
+	}
+
+	var seconds int64
+	if err := json.Unmarshal(raw, &seconds); err == nil {
+		return time.Duration(seconds) * time.Second
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return parseDuration(text)
+	}
+	return 0
+}
