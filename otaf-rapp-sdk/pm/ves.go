@@ -55,3 +55,24 @@ type measDataCollection struct {
 	MeasuredEntitySoftware string         `json:"measuredEntitySoftwareVersion"`
 	MeasInfoList           []measInfoJSON `json:"measInfoList"`
 }
+
+type measInfoJSON struct {
+	// Sent as {"sMeasInfoId": "..."} or as a bare string.
+	MeasInfoID json.RawMessage `json:"measInfoId"`
+	MeasTypes  measTypesJSON   `json:"measTypes"`
+	MeasValues []measValueJSON `json:"measValuesList"`
+}
+
+type measTypesJSON struct {
+	SMeasTypesList []string `json:"sMeasTypesList"`
+	IMeasTypesList []int    `json:"iMeasTypesList"`
+}
+
+type measValueJSON struct {
+	MeasObjInstID string `json:"measObjInstId"`
+
+	// Sent as a boolean or as the strings "true" and "false".
+	SuspectFlag json.RawMessage `json:"suspectFlag"`
+
+	MeasResults []measResultJSON `json:"measResults"`
+}
