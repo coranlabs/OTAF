@@ -257,3 +257,55 @@ func (r *Report) Group(group string) []Measurement {
 	}
 	return out
 }
+
+// Counter finds one counter for one object, wherever in the report it sits.
+func (r *Report) Counter(object, name string) (float64, bool) {
+	for _, m := range r.Measurements {
+		if m.Object != object {
+			continue
+		}
+		if v, ok := m.Float(name); ok {
+			return v, true
+		}
+	}
+	return 0, false
+}
+
+// Merge folds every measurement for an object into one, so a caller reading
+// counters that the element split across groups does not have to know it did.
+// Later groups win on a repeated name.
+func (r *Report) Merge(object string) (Measurement, bool) {
+	parts := r.For(object)
+	if len(parts) == 0 {
+		return Measurement{}, false
+	}
+
+	merged := Measurement{
+		Object:      object,
+		Group:       parts[0].Group,
+		At:          parts[0].At,
+		Granularity: parts[0].Granularity,
+		Counters:    map[string]string{},
+	}
+	for _, part := range parts {
+		if part.Suspect {
+			merged.Suspect = true
+		}
+		for name, value := range part.Counters {
+			merged.Counters[name] = value
+		}
+	}
+	return merged, true
+}
+
+func parseFloat(raw string) (float64, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, false
+	}
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
