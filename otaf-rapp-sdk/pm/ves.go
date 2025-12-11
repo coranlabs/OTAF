@@ -25,3 +25,8 @@ type vesEnvelope struct {
 	Event     *vesEvent  `json:"event"`
 	EventList []vesEvent `json:"eventList"`
 }
+
+type vesEvent struct {
+	CommonEventHeader commonEventHeader `json:"commonEventHeader"`
+	Perf3gppFields    perf3gppFields    `json:"perf3gppFields"`
+}
