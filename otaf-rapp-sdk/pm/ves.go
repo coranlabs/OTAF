@@ -143,3 +143,58 @@ func (e vesEnvelope) events() []vesEvent {
 	}
 	return nil
 }
+
+func reportFromVES(event vesEvent) *Report {
+	header := event.CommonEventHeader
+	collection := event.Perf3gppFields.MeasDataCollection
+
+	report := &Report{
+		Format:      FormatVES,
+		Element:     firstNonEmpty(collection.MeasuredEntityDn, header.SourceName),
+		Vendor:      header.NfVendorName,
+		Begin:       epochMicros(header.StartEpochMicrosec),
+		End:         epochMicros(header.LastEpochMicrosec),
+		Granularity: granularityOf(collection.GranularityPeriod),
+	}
+
+	for _, info := range collection.MeasInfoList {
+		names := vesCounterNames(info.MeasTypes)
+		group := vesGroup(info.MeasInfoID)
+
+		for _, value := range info.MeasValues {
+			counters := make(map[string]string, len(value.MeasResults))
+			for i, r := range value.MeasResults {
+				position := r.P
+				if position < 1 {
+					position = i + 1
+				}
+				name := nameAt(names, position)
+				if name == "" {
+					continue
+				}
+				counters[name] = vesValue(r)
+			}
+
+			report.Measurements = append(report.Measurements, Measurement{
+				Group:       group,
+				Object:      qualify(report.Element, value.MeasObjInstID),
+				Suspect:     suspect(value.SuspectFlag),
+				At:          report.End,
+				Granularity: report.Granularity,
+				Counters:    counters,
+			})
+		}
+	}
+	return report
+}
+
+func vesCounterNames(types measTypesJSON) []string {
+	if len(types.SMeasTypesList) > 0 {
+		return types.SMeasTypesList
+	}
+	names := make([]string, len(types.IMeasTypesList))
+	for i, id := range types.IMeasTypesList {
+		names[i] = strconv.Itoa(id)
+	}
+	return names
+}
