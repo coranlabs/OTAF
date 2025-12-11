@@ -309,3 +309,76 @@ func parseFloat(raw string) (float64, bool) {
 	}
 	return v, true
 }
+
+// parseDuration reads the ISO 8601 period both encodings use for granularity,
+// such as PT900S or PT15M. Plain digits are read as seconds, which is what VES
+// sends.
+func parseDuration(raw string) time.Duration {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	if n, err := strconv.Atoi(raw); err == nil {
+		return time.Duration(n) * time.Second
+	}
+	if !strings.HasPrefix(raw, "PT") && !strings.HasPrefix(raw, "P") {
+		return 0
+	}
+
+	body := raw
+	if i := strings.Index(body, "T"); i >= 0 {
+		body = body[i+1:]
+	} else {
+		body = strings.TrimPrefix(body, "P")
+	}
+
+	var total time.Duration
+	var number strings.Builder
+	for _, r := range body {
+		if (r >= '0' && r <= '9') || r == '.' {
+			number.WriteRune(r)
+			continue
+		}
+		value, err := strconv.ParseFloat(number.String(), 64)
+		number.Reset()
+		if err != nil {
+			continue
+		}
+		switch r {
+		case 'H':
+			total += time.Duration(value * float64(time.Hour))
+		case 'M':
+			total += time.Duration(value * float64(time.Minute))
+		case 'S':
+			total += time.Duration(value * float64(time.Second))
+		}
+	}
+	return total
+}
+
+// parseTime reads the timestamps both encodings use. Some elements omit the
+// colon in the zone offset, which is legal 3GPP but not RFC 3339.
+func parseTime(raw string) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05-0700",
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+func (r *Report) String() string {
+	return fmt.Sprintf("%s report from %s: %d measurements over %s",
+		r.Format, r.Element, len(r.Measurements), r.Granularity)
+}
