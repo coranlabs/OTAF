@@ -248,3 +248,26 @@ func granularityOf(raw json.RawMessage) time.Duration {
 	}
 	return 0
 }
+
+func suspect(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+
+	var asBool bool
+	if err := json.Unmarshal(raw, &asBool); err == nil {
+		return asBool
+	}
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		return strings.EqualFold(strings.TrimSpace(asString), "true")
+	}
+	return false
+}
+
+func epochMicros(v int64) time.Time {
+	if v <= 0 {
+		return time.Time{}
+	}
+	return time.UnixMicro(v).UTC()
+}
