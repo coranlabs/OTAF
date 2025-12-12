@@ -43,3 +43,12 @@ type measCollec struct {
 	BeginTime string `xml:"beginTime,attr"`
 	EndTime   string `xml:"endTime,attr"`
 }
+
+type fileFooter struct {
+	MeasCollec measCollec `xml:"measCollec"`
+}
+
+type measData struct {
+	ManagedElement managedElement `xml:"managedElement"`
+	MeasInfo       []measInfo     `xml:"measInfo"`
+}
