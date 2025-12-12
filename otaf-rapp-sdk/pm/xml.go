@@ -25,3 +25,21 @@ type measCollecFile struct {
 	MeasData   []measData `xml:"measData"`
 	FileFooter fileFooter `xml:"fileFooter"`
 }
+
+type fileHeader struct {
+	FileFormatVersion string     `xml:"fileFormatVersion,attr"`
+	VendorName        string     `xml:"vendorName,attr"`
+	DNPrefix          string     `xml:"dnPrefix,attr"`
+	FileSender        fileSender `xml:"fileSender"`
+	MeasCollec        measCollec `xml:"measCollec"`
+}
+
+type fileSender struct {
+	LocalDn     string `xml:"localDn,attr"`
+	ElementType string `xml:"elementType,attr"`
+}
+
+type measCollec struct {
+	BeginTime string `xml:"beginTime,attr"`
+	EndTime   string `xml:"endTime,attr"`
+}
