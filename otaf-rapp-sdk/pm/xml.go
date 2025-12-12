@@ -52,3 +52,24 @@ type measData struct {
 	ManagedElement managedElement `xml:"managedElement"`
 	MeasInfo       []measInfo     `xml:"measInfo"`
 }
+
+type managedElement struct {
+	LocalDn   string `xml:"localDn,attr"`
+	UserLabel string `xml:"userLabel,attr"`
+	SwVersion string `xml:"swVersion,attr"`
+}
+
+type measInfo struct {
+	MeasInfoID string     `xml:"measInfoId,attr"`
+	Job        job        `xml:"job"`
+	GranPeriod granPeriod `xml:"granPeriod"`
+	RepPeriod  repPeriod  `xml:"repPeriod"`
+
+	// The standard allows the counter names either as repeated measType
+	// elements carrying a position, or as one whitespace-separated measTypes
+	// string. Elements in the field use both.
+	MeasType  []measType `xml:"measType"`
+	MeasTypes string     `xml:"measTypes"`
+
+	MeasValue []measValue `xml:"measValue"`
+}
