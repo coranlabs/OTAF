@@ -73,3 +73,12 @@ type measInfo struct {
 
 	MeasValue []measValue `xml:"measValue"`
 }
+
+type job struct {
+	JobID string `xml:"jobId,attr"`
+}
+
+type granPeriod struct {
+	Duration string `xml:"duration,attr"`
+	EndTime  string `xml:"endTime,attr"`
+}
