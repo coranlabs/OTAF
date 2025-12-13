@@ -82,3 +82,7 @@ type granPeriod struct {
 	Duration string `xml:"duration,attr"`
 	EndTime  string `xml:"endTime,attr"`
 }
+
+type repPeriod struct {
+	Duration string `xml:"duration,attr"`
+}
