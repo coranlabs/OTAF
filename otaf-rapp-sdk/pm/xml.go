@@ -86,3 +86,19 @@ type granPeriod struct {
 type repPeriod struct {
 	Duration string `xml:"duration,attr"`
 }
+
+type measType struct {
+	P     int    `xml:"p,attr"`
+	Value string `xml:",chardata"`
+}
+
+type measValue struct {
+	MeasObjLdn string `xml:"measObjLdn,attr"`
+
+	// Results likewise come either as positioned r elements or as one
+	// whitespace-separated measResults string.
+	R           []result `xml:"r"`
+	MeasResults string   `xml:"measResults"`
+
+	Suspect string `xml:"suspect"`
+}
