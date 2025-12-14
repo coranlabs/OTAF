@@ -102,3 +102,67 @@ type measValue struct {
 
 	Suspect string `xml:"suspect"`
 }
+
+type result struct {
+	P     int    `xml:"p,attr"`
+	Value string `xml:",chardata"`
+}
+
+// ParseXML decodes a 3GPP TS 32.435 measurement collection file.
+func ParseXML(data []byte) (*Report, error) {
+	var file measCollecFile
+	if err := xml.Unmarshal(data, &file); err != nil {
+		return nil, wrapBadData(err, CodeDecodeFailed, "could not decode the measurement file")
+	}
+	if file.XMLName.Local != "measCollecFile" {
+		return nil, badData(CodeNotMeasurement,
+			"root element is %q, want measCollecFile", file.XMLName.Local)
+	}
+
+	report := &Report{
+		Format:   FormatXML,
+		Element:  file.FileHeader.FileSender.LocalDn,
+		DNPrefix: file.FileHeader.DNPrefix,
+		Vendor:   file.FileHeader.VendorName,
+		Begin:    parseTime(file.FileHeader.MeasCollec.BeginTime),
+	}
+	report.End = parseTime(firstNonEmpty(
+		file.FileFooter.MeasCollec.EndTime,
+		file.FileHeader.MeasCollec.EndTime,
+	))
+
+	for _, data := range file.MeasData {
+		// The sender names itself in the header, but each block names the
+		// element the counters actually came from.
+		if report.Element == "" {
+			report.Element = data.ManagedElement.LocalDn
+		}
+
+		for _, info := range data.MeasInfo {
+			names := counterNames(info)
+			granularity := parseDuration(info.GranPeriod.Duration)
+			at := parseTime(info.GranPeriod.EndTime)
+
+			if report.Granularity == 0 {
+				report.Granularity = granularity
+			}
+
+			for _, value := range info.MeasValue {
+				measurement := Measurement{
+					Group:       info.MeasInfoID,
+					Object:      qualify(data.ManagedElement.LocalDn, value.MeasObjLdn),
+					Suspect:     strings.EqualFold(strings.TrimSpace(value.Suspect), "true"),
+					At:          at,
+					Granularity: granularity,
+					Counters:    countersOf(names, value),
+				}
+				if measurement.At.IsZero() {
+					measurement.At = report.End
+				}
+				report.Measurements = append(report.Measurements, measurement)
+			}
+		}
+	}
+
+	return report, nil
+}
