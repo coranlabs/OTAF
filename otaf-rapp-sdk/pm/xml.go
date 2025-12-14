@@ -166,3 +166,30 @@ func ParseXML(data []byte) (*Report, error) {
 
 	return report, nil
 }
+
+// counterNames returns the counter name for each position, one-based, in the
+// order the results will arrive.
+func counterNames(info measInfo) []string {
+	if len(info.MeasType) > 0 {
+		highest := 0
+		for _, t := range info.MeasType {
+			if t.P > highest {
+				highest = t.P
+			}
+		}
+
+		names := make([]string, highest)
+		for i, t := range info.MeasType {
+			name := strings.TrimSpace(t.Value)
+			switch {
+			case t.P >= 1 && t.P <= highest:
+				names[t.P-1] = name
+			case i < highest:
+				// A file that omits the position falls back to document order.
+				names[i] = name
+			}
+		}
+		return names
+	}
+	return strings.Fields(info.MeasTypes)
+}
