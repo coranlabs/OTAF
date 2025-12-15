@@ -193,3 +193,27 @@ func counterNames(info measInfo) []string {
 	}
 	return strings.Fields(info.MeasTypes)
 }
+
+func countersOf(names []string, value measValue) map[string]string {
+	counters := make(map[string]string, len(names))
+
+	if len(value.R) > 0 {
+		for i, r := range value.R {
+			position := r.P
+			if position < 1 {
+				position = i + 1
+			}
+			if name := nameAt(names, position); name != "" {
+				counters[name] = strings.TrimSpace(r.Value)
+			}
+		}
+		return counters
+	}
+
+	for i, raw := range strings.Fields(value.MeasResults) {
+		if name := nameAt(names, i+1); name != "" {
+			counters[name] = raw
+		}
+	}
+	return counters
+}
