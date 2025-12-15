@@ -217,3 +217,10 @@ func countersOf(names []string, value measValue) map[string]string {
 	}
 	return counters
 }
+
+func nameAt(names []string, position int) string {
+	if position < 1 || position > len(names) {
+		return ""
+	}
+	return names[position-1]
+}
