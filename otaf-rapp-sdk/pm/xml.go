@@ -224,3 +224,31 @@ func nameAt(names []string, position int) string {
 	}
 	return names[position-1]
 }
+
+// qualify makes a measured object's name absolute. Elements commonly write it
+// relative to the managed element, which makes the same cell look different
+// depending on which file it arrived in.
+func qualify(element, object string) string {
+	object = strings.TrimSpace(object)
+	element = strings.TrimSpace(element)
+
+	switch {
+	case object == "":
+		return element
+	case element == "", strings.Contains(object, element):
+		return object
+	case strings.HasPrefix(object, "ManagedElement="):
+		return object
+	default:
+		return element + "," + object
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
