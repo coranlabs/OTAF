@@ -109,3 +109,58 @@ func TestVESEvent(t *testing.T) {
 		t.Error("a boolean suspectFlag should be honoured")
 	}
 }
+
+// Senders differ on how they wrap these, and an rApp should not have to care.
+func TestVESAcceptsBothFieldForms(t *testing.T) {
+	const doc = `{"event":{"commonEventHeader":{"domain":"perf3gpp","sourceName":"gnb-9"},
+	 "perf3gppFields":{"measDataCollection":{"granularityPeriod":"PT300S",
+	  "measInfoList":[{"measInfoId":"PlainGroup",
+	   "measTypes":{"iMeasTypesList":[101,102]},
+	   "measValuesList":[{"measObjInstId":"obj-1",
+	    "measResults":[{"p":1,"iValue":5},{"p":2,"iValue":6}]}]}]}}}}`
+
+	reports, err := ParseVES([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := reports[0]
+
+	if report.Granularity != 5*time.Minute {
+		t.Errorf("granularity = %v, want 5m from an ISO period", report.Granularity)
+	}
+	m := report.Measurements[0]
+	if m.Group != "PlainGroup" {
+		t.Errorf("group = %q, want the bare string form to work", m.Group)
+	}
+	if got, ok := m.Int("101"); !ok || got != 5 {
+		t.Errorf("counter 101 = %v (%v), want 5 from iValue", got, ok)
+	}
+}
+
+func TestVESEventList(t *testing.T) {
+	const doc = `{"eventList":[
+	 {"commonEventHeader":{"domain":"perf3gpp","sourceName":"a"},
+	  "perf3gppFields":{"measDataCollection":{"measInfoList":[]}}},
+	 {"commonEventHeader":{"domain":"perf3gpp","sourceName":"b"},
+	  "perf3gppFields":{"measDataCollection":{"measInfoList":[]}}}]}`
+
+	reports, err := ParseVES([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 2 {
+		t.Fatalf("reports = %d, want 2", len(reports))
+	}
+}
+
+func TestVESBatchArray(t *testing.T) {
+	doc := "[" + vesEvent7 + "," + vesEvent7 + "]"
+
+	reports, err := ParseVES([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 2 {
+		t.Fatalf("reports = %d, want 2", len(reports))
+	}
+}
