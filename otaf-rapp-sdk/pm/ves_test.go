@@ -217,3 +217,36 @@ func TestParseDetectsTheFormat(t *testing.T) {
 		t.Errorf("err = %v, want ErrUnknownFormat", err)
 	}
 }
+
+// A payload that will not decode is bad data, and bad data does not improve on
+// a second attempt. Saying so here means no caller has to label it by hand.
+func TestDecodeFailuresClassifyAsPermanentBadData(t *testing.T) {
+	cases := map[string]func() error{
+		"unknown encoding": func() error { _, err := Parse([]byte("neither")); return err },
+		"malformed xml":    func() error { _, err := ParseXML([]byte(`<measCollecFile><oops>`)); return err },
+		"wrong root":       func() error { _, err := ParseXML([]byte(`<other/>`)); return err },
+		"malformed json":   func() error { _, err := ParseVES([]byte(`{"event":`)); return err },
+		"no perf events": func() error {
+			_, err := ParseVES([]byte(`{"event":{"commonEventHeader":{"domain":"fault"}}}`))
+			return err
+		},
+	}
+
+	for name, produce := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := produce()
+			if err == nil {
+				t.Fatal("expected a failure")
+			}
+			if got := errs.CategoryOf(err); got != errs.CategoryData {
+				t.Errorf("category = %s, want data", got)
+			}
+			if retry.Retryable(err) {
+				t.Error("retrying sends the same undecodable bytes again")
+			}
+			if errs.CodeOf(err) == "" {
+				t.Error("the failure should carry a code an operator can search for")
+			}
+		})
+	}
+}
