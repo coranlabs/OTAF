@@ -181,3 +181,39 @@ func TestOtherDomainsAreSkipped(t *testing.T) {
 		t.Errorf("reports = %#v, want only the perf3gpp one", reports)
 	}
 }
+
+func TestVESWithNoPerfEventsIsAnError(t *testing.T) {
+	const doc = `{"event":{"commonEventHeader":{"domain":"fault","sourceName":"a"}}}`
+	if _, err := ParseVES([]byte(doc)); err == nil {
+		t.Fatal("expected an error when nothing in the payload is perf3gpp")
+	}
+}
+
+func TestVESRejectsMalformedJSON(t *testing.T) {
+	if _, err := ParseVES([]byte(`{"event":`)); err == nil {
+		t.Fatal("expected an error for malformed JSON")
+	}
+}
+
+// An rApp fed from a topic that mixes both encodings should not have to sniff.
+func TestParseDetectsTheFormat(t *testing.T) {
+	xmlReports, err := Parse([]byte(xmlPositional))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if xmlReports[0].Format != FormatXML {
+		t.Errorf("format = %s, want %s", xmlReports[0].Format, FormatXML)
+	}
+
+	vesReports, err := Parse([]byte(vesEvent7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vesReports[0].Format != FormatVES {
+		t.Errorf("format = %s, want %s", vesReports[0].Format, FormatVES)
+	}
+
+	if _, err := Parse([]byte("neither of these")); !errors.Is(err, ErrUnknownFormat) {
+		t.Errorf("err = %v, want ErrUnknownFormat", err)
+	}
+}
