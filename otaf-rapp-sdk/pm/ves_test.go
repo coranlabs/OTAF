@@ -250,3 +250,14 @@ func TestDecodeFailuresClassifyAsPermanentBadData(t *testing.T) {
 		})
 	}
 }
+
+// The cause has to stay reachable, or a decode failure becomes unexplainable.
+func TestDecodeFailureKeepsItsCause(t *testing.T) {
+	_, err := ParseVES([]byte(`{"event":`))
+	if err == nil {
+		t.Fatal("expected a failure")
+	}
+	if !strings.Contains(err.Error(), "unexpected end") {
+		t.Errorf("error = %v, want the decoder's own message kept", err)
+	}
+}
