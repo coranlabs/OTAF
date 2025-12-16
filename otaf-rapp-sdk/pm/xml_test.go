@@ -69,3 +69,43 @@ const xmlWhitespace = `<measCollecFile>
     </measInfo>
   </measData>
 </measCollecFile>`
+
+func TestXMLPositionalForm(t *testing.T) {
+	report, err := ParseXML([]byte(xmlPositional))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.Format != FormatXML {
+		t.Errorf("format = %s, want %s", report.Format, FormatXML)
+	}
+	if report.Element != "ManagedElement=gnb-001" {
+		t.Errorf("element = %q", report.Element)
+	}
+	if report.DNPrefix != "SubNetwork=Europe" {
+		t.Errorf("dn prefix = %q", report.DNPrefix)
+	}
+	if report.Vendor != "Acme" {
+		t.Errorf("vendor = %q", report.Vendor)
+	}
+	if report.Granularity != 15*time.Minute {
+		t.Errorf("granularity = %v, want 15m", report.Granularity)
+	}
+	if len(report.Measurements) != 2 {
+		t.Fatalf("measurements = %d, want 2", len(report.Measurements))
+	}
+
+	first := report.Measurements[0]
+	if first.Group != "NRCellDU" {
+		t.Errorf("group = %q, want NRCellDU", first.Group)
+	}
+	if got, ok := first.Float("counterB"); !ok || got != 20.5 {
+		t.Errorf("counterB = %v (%v), want 20.5", got, ok)
+	}
+	if first.At.IsZero() {
+		t.Error("the granularity period end should become the sample time")
+	}
+	if first.Suspect {
+		t.Error("the first measurement is not suspect")
+	}
+}
