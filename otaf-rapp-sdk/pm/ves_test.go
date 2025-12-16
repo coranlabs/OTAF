@@ -164,3 +164,20 @@ func TestVESBatchArray(t *testing.T) {
 		t.Fatalf("reports = %d, want 2", len(reports))
 	}
 }
+
+// A topic commonly carries more than one domain, so a fault event must be
+// skipped rather than fail the batch.
+func TestOtherDomainsAreSkipped(t *testing.T) {
+	const doc = `{"eventList":[
+	 {"commonEventHeader":{"domain":"fault","sourceName":"a"}},
+	 {"commonEventHeader":{"domain":"perf3gpp","sourceName":"b"},
+	  "perf3gppFields":{"measDataCollection":{"measInfoList":[]}}}]}`
+
+	reports, err := ParseVES([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 1 || reports[0].Element != "b" {
+		t.Errorf("reports = %#v, want only the perf3gpp one", reports)
+	}
+}
