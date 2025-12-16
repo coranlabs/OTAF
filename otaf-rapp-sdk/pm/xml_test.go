@@ -109,3 +109,51 @@ func TestXMLPositionalForm(t *testing.T) {
 		t.Error("the first measurement is not suspect")
 	}
 }
+
+// Data the element itself flagged as unreliable has to stay distinguishable,
+// or an rApp treats a disturbed collection period as fact.
+func TestSuspectFlagIsCarried(t *testing.T) {
+	report, err := ParseXML([]byte(xmlPositional))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Measurements[1].Suspect {
+		t.Error("a measurement marked suspect should say so")
+	}
+}
+
+func TestXMLWhitespaceForm(t *testing.T) {
+	report, err := ParseXML([]byte(xmlWhitespace))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(report.Measurements) != 1 {
+		t.Fatalf("measurements = %d, want 1", len(report.Measurements))
+	}
+	m := report.Measurements[0]
+
+	if got, ok := m.Int("counterA"); !ok || got != 7 {
+		t.Errorf("counterA = %v (%v), want 7", got, ok)
+	}
+	if got, ok := m.Int("counterB"); !ok || got != 8 {
+		t.Errorf("counterB = %v (%v), want 8", got, ok)
+	}
+	if report.Granularity != 15*time.Minute {
+		t.Errorf("granularity = %v, want 15m from PT15M", report.Granularity)
+	}
+}
+
+// The same cell must not look like two different objects depending on which
+// file it arrived in.
+func TestObjectNamesAreQualified(t *testing.T) {
+	report, err := ParseXML([]byte(xmlPositional))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := "ManagedElement=gnb-001,NRCellDU=cell-1"
+	if got := report.Measurements[0].Object; got != want {
+		t.Errorf("object = %q, want %q", got, want)
+	}
+}
