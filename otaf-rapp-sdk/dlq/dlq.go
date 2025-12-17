@@ -123,6 +123,37 @@ type Queue struct {
 	stats   Stats
 }
 
+// New builds a queue. A configured directory is created if absent, and any
+// messages parked by a previous run are loaded back in.
+func New(cfg Config, logger *logrus.Logger) (*Queue, error) {
+	cfg.applyDefaults()
+
+	q := &Queue{
+		cfg:     cfg,
+		logger:  logger,
+		now:     time.Now,
+		entries: map[string]*Entry{},
+	}
+
+	if cfg.Dir != "" {
+		if err := os.MkdirAll(cfg.Dir, 0o750); err != nil {
+			return nil, fmt.Errorf("dlq: create %s: %w", cfg.Dir, err)
+		}
+		if err := q.load(); err != nil {
+			return nil, err
+		}
+	}
+	return q, nil
+}
+
+// WithClock replaces the source of time, for tests.
+func (q *Queue) WithClock(now func() time.Time) *Queue {
+	if now != nil {
+		q.now = now
+	}
+	return q
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
