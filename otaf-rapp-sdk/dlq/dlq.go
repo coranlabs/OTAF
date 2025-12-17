@@ -66,6 +66,27 @@ type Config struct {
 	Backoff retry.Policy `yaml:"-"`
 }
 
+func (c *Config) applyDefaults() {
+	if c.MaxEntries <= 0 {
+		c.MaxEntries = 1000
+	}
+	if c.MaxAge <= 0 {
+		c.MaxAge = 24 * time.Hour
+	}
+	if c.MaxAttempts <= 0 {
+		c.MaxAttempts = 10
+	}
+	if c.Interval <= 0 {
+		c.Interval = 30 * time.Second
+	}
+	if c.Backoff.Initial <= 0 {
+		c.Backoff = retry.Policy{
+			Attempts: c.MaxAttempts, Initial: 30 * time.Second,
+			Max: 30 * time.Minute, Multiplier: 2, Jitter: 0.2,
+		}
+	}
+}
+
 type Stats struct {
 	Parked    int    `json:"parked"`
 	Accepted  uint64 `json:"accepted"`
@@ -74,6 +95,17 @@ type Stats struct {
 	Expired   uint64 `json:"expired"`
 	Rejected  uint64 `json:"rejected"`
 	Overflow  uint64 `json:"overflow"`
+}
+
+type Queue struct {
+	cfg     Config
+	logger  *logrus.Logger
+	handler ingest.Handler
+	now     func() time.Time
+
+	mu      sync.Mutex
+	entries map[string]*Entry
+	stats   Stats
 }
 
 func (q *Queue) Stats() Stats {
