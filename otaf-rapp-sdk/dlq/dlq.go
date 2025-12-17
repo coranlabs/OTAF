@@ -87,6 +87,21 @@ func (c *Config) applyDefaults() {
 	}
 }
 
+// Entry is one parked message and why it is here.
+type Entry struct {
+	ID      string         `json:"id"`
+	Message ingest.Message `json:"message"`
+
+	Reason      string    `json:"reason"`
+	Attempts    int       `json:"attempts"`
+	FirstFailed time.Time `json:"first_failed"`
+	LastFailed  time.Time `json:"last_failed"`
+	NextAttempt time.Time `json:"next_attempt"`
+}
+
+// Due reports whether the entry is ready to be tried again.
+func (e Entry) Due(at time.Time) bool { return !at.Before(e.NextAttempt) }
+
 type Stats struct {
 	Parked    int    `json:"parked"`
 	Accepted  uint64 `json:"accepted"`
