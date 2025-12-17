@@ -173,3 +173,28 @@ func TestAlreadyQualifiedObjectIsLeftAlone(t *testing.T) {
 		t.Errorf("object = %q, want it unchanged", got)
 	}
 }
+
+// The standard allows several measData blocks in one file, one per element.
+func TestMultipleMeasDataBlocks(t *testing.T) {
+	const doc = `<measCollecFile>
+	  <fileHeader><fileSender localDn="ManagedElement=gnb-1"/></fileHeader>
+	  <measData><managedElement localDn="ManagedElement=gnb-1"/>
+	    <measInfo measInfoId="g1"><measTypes>a</measTypes>
+	      <measValue measObjLdn="NRCellDU=c1"><r p="1">1</r></measValue></measInfo></measData>
+	  <measData><managedElement localDn="ManagedElement=gnb-2"/>
+	    <measInfo measInfoId="g2"><measTypes>a</measTypes>
+	      <measValue measObjLdn="NRCellDU=c2"><r p="1">2</r></measValue></measInfo></measData>
+	</measCollecFile>`
+
+	report, err := ParseXML([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Measurements) != 2 {
+		t.Fatalf("measurements = %d, want 2", len(report.Measurements))
+	}
+	if report.Measurements[1].Object != "ManagedElement=gnb-2,NRCellDU=c2" {
+		t.Errorf("second block object = %q, want it named after its own element",
+			report.Measurements[1].Object)
+	}
+}
