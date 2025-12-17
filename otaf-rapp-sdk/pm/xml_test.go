@@ -249,3 +249,21 @@ func TestDurationForms(t *testing.T) {
 		}
 	}
 }
+
+// Some elements write the zone offset without a colon, which is legal 3GPP but
+// not RFC 3339.
+func TestTimeForms(t *testing.T) {
+	for _, input := range []string{
+		"2026-03-01T10:15:00Z",
+		"2026-03-01T10:15:00+00:00",
+		"2026-03-01T10:15:00+0000",
+		"2026-03-01T10:15:00",
+	} {
+		if parseTime(input).IsZero() {
+			t.Errorf("parseTime(%q) failed", input)
+		}
+	}
+	if !parseTime("not a time").IsZero() {
+		t.Error("an unparseable timestamp should come back zero")
+	}
+}
