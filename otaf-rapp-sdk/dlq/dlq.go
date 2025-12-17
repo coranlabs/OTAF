@@ -154,6 +154,29 @@ func (q *Queue) WithClock(now func() time.Time) *Queue {
 	return q
 }
 
+func (q *Queue) Name() string { return "dlq" }
+
+// Wrap returns a handler that parks whatever the inner one could not process.
+// This is the whole integration: build the pipeline around the wrapped handler
+// and failures become recoverable.
+func (q *Queue) Wrap(handler ingest.Handler) ingest.Handler {
+	q.mu.Lock()
+	q.handler = handler
+	q.mu.Unlock()
+
+	return ingest.HandlerFunc(func(ctx context.Context, m ingest.Message) error {
+		err := handler.Handle(ctx, m)
+		if err == nil {
+			return nil
+		}
+		q.Park(m, err)
+
+		// The pipeline counts this as failed either way; parking it means the
+		// data is not gone with the count.
+		return err
+	})
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
