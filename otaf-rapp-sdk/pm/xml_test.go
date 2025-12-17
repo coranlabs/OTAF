@@ -198,3 +198,25 @@ func TestMultipleMeasDataBlocks(t *testing.T) {
 			report.Measurements[1].Object)
 	}
 }
+
+func TestMeasTypesOutOfOrderStillMapByPosition(t *testing.T) {
+	const doc = `<measCollecFile><fileHeader><fileSender localDn="e"/></fileHeader>
+	<measData><managedElement localDn="e"/><measInfo measInfoId="g">
+	  <measType p="2">second</measType>
+	  <measType p="1">first</measType>
+	  <measValue measObjLdn="o"><r p="1">10</r><r p="2">20</r></measValue>
+	</measInfo></measData></measCollecFile>`
+
+	report, err := ParseXML([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := report.Measurements[0]
+
+	if got, _ := m.Float("first"); got != 10 {
+		t.Errorf("first = %v, want 10", got)
+	}
+	if got, _ := m.Float("second"); got != 20 {
+		t.Errorf("second = %v, want 20", got)
+	}
+}
