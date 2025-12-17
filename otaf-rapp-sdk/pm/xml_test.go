@@ -220,3 +220,32 @@ func TestMeasTypesOutOfOrderStillMapByPosition(t *testing.T) {
 		t.Errorf("second = %v, want 20", got)
 	}
 }
+
+func TestRejectsWrongRoot(t *testing.T) {
+	if _, err := ParseXML([]byte(`<somethingElse/>`)); err == nil {
+		t.Fatal("expected an error for a document that is not a measurement file")
+	}
+}
+
+func TestRejectsMalformedXML(t *testing.T) {
+	if _, err := ParseXML([]byte(`<measCollecFile><unclosed>`)); err == nil {
+		t.Fatal("expected an error for malformed XML")
+	}
+}
+
+func TestDurationForms(t *testing.T) {
+	cases := map[string]time.Duration{
+		"PT900S":   15 * time.Minute,
+		"PT15M":    15 * time.Minute,
+		"PT1H":     time.Hour,
+		"PT1H30M":  90 * time.Minute,
+		"900":      15 * time.Minute,
+		"":         0,
+		"nonsense": 0,
+	}
+	for input, want := range cases {
+		if got := parseDuration(input); got != want {
+			t.Errorf("parseDuration(%q) = %v, want %v", input, got, want)
+		}
+	}
+}
