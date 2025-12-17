@@ -157,3 +157,19 @@ func TestObjectNamesAreQualified(t *testing.T) {
 		t.Errorf("object = %q, want %q", got, want)
 	}
 }
+
+func TestAlreadyQualifiedObjectIsLeftAlone(t *testing.T) {
+	const doc = `<measCollecFile><fileHeader><fileSender localDn="ManagedElement=gnb-1"/></fileHeader>
+	<measData><managedElement localDn="ManagedElement=gnb-1"/>
+	<measInfo measInfoId="g"><measTypes>a</measTypes>
+	<measValue measObjLdn="ManagedElement=gnb-1,NRCellDU=cell-1"><r p="1">1</r></measValue>
+	</measInfo></measData></measCollecFile>`
+
+	report, err := ParseXML([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := report.Measurements[0].Object; got != "ManagedElement=gnb-1,NRCellDU=cell-1" {
+		t.Errorf("object = %q, want it unchanged", got)
+	}
+}
