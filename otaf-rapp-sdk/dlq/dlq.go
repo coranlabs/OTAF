@@ -467,3 +467,41 @@ func (q *Queue) deleteFile(id string) {
 }
 
 func (q *Queue) pathFor(id string) string { return filepath.Join(q.cfg.Dir, id+".json") }
+
+// load reads back what a previous run parked. A file that will not decode is
+// moved aside rather than dropped, so nothing is lost silently.
+func (q *Queue) load() error {
+	files, err := os.ReadDir(q.cfg.Dir)
+	if err != nil {
+		return fmt.Errorf("dlq: read %s: %w", q.cfg.Dir, err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+		path := filepath.Join(q.cfg.Dir, file.Name())
+
+		body, err := os.ReadFile(path)
+		if err != nil {
+			q.logger.WithError(err).WithField("file", file.Name()).Warn("could not read parked message")
+			continue
+		}
+
+		var entry Entry
+		if err := json.Unmarshal(body, &entry); err != nil || entry.ID == "" {
+			q.logger.WithField("file", file.Name()).Warn("parked message is unreadable, setting it aside")
+			_ = os.Rename(path, path+".corrupt")
+			continue
+		}
+		q.entries[entry.ID] = &entry
+	}
+	return nil
+}
+
+func reasonOf(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
