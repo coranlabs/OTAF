@@ -293,6 +293,69 @@ func (q *Queue) replay(ctx context.Context, ignoreBackoff bool) (recovered, fail
 	return recovered, failed
 }
 
+// Retry replays one message by id.
+func (q *Queue) Retry(ctx context.Context, id string) error {
+	q.mu.Lock()
+	entry, known := q.entries[id]
+	handler := q.handler
+	var message ingest.Message
+	if known {
+		message = entry.Message
+	}
+	q.mu.Unlock()
+
+	if !known {
+		return fmt.Errorf("dlq: no parked message %s", id)
+	}
+	if handler == nil {
+		return errors.New("dlq: no handler attached; call Wrap first")
+	}
+
+	if err := handler.Handle(ctx, message); err != nil {
+		q.recordFailure(id, err)
+		return err
+	}
+
+	q.remove(id)
+	q.mu.Lock()
+	q.stats.Recovered++
+	q.mu.Unlock()
+	return nil
+}
+
+func (q *Queue) recordFailure(id string, cause error) {
+	now := q.now()
+
+	q.mu.Lock()
+	entry, known := q.entries[id]
+	if !known {
+		q.mu.Unlock()
+		return
+	}
+
+	entry.Attempts++
+	entry.LastFailed = now
+	entry.Reason = reasonOf(cause)
+	entry.NextAttempt = now.Add(q.cfg.Backoff.Backoff(entry.Attempts + 1))
+
+	exhausted := entry.Attempts >= q.cfg.MaxAttempts
+	if exhausted {
+		delete(q.entries, id)
+		q.stats.Exhausted++
+	}
+	snapshot := *entry
+	q.mu.Unlock()
+
+	if exhausted {
+		q.deleteFile(id)
+		q.logger.WithFields(logrus.Fields{
+			"id": id, "attempts": snapshot.Attempts, "reason": snapshot.Reason,
+		}).Error("giving up on parked message")
+		return
+	}
+	q.persist(&snapshot)
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
