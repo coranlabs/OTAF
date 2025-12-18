@@ -505,3 +505,11 @@ func reasonOf(err error) string {
 	}
 	return err.Error()
 }
+
+func newID() string {
+	buf := make([]byte, 8)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%d-%s", time.Now().UnixNano(), hex.EncodeToString(buf))
+}
