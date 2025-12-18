@@ -214,6 +214,40 @@ func (q *Queue) Park(m ingest.Message, cause error) {
 	}).Warn("message parked for retry")
 }
 
+// Start replays due messages until ctx ends.
+func (q *Queue) Start(ctx context.Context) error {
+	if q == nil {
+		return nil
+	}
+
+	ticker := time.NewTicker(q.cfg.Interval)
+	defer ticker.Stop()
+
+	if depth := q.Len(); depth > 0 {
+		q.logger.WithField("parked", depth).Info("dead-letter queue restored from disk")
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			q.RetryDue(ctx)
+		}
+	}
+}
+
+// RetryDue replays every message whose backoff has elapsed.
+func (q *Queue) RetryDue(ctx context.Context) (recovered, failed int) {
+	return q.replay(ctx, false)
+}
+
+// RetryAll replays everything parked, ignoring the backoff. It is what an
+// operator reaches for once they know the obstacle has gone.
+func (q *Queue) RetryAll(ctx context.Context) (recovered, failed int) {
+	return q.replay(ctx, true)
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
