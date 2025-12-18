@@ -369,6 +369,35 @@ func (q *Queue) Discard(id string) bool {
 	return known
 }
 
+func (q *Queue) remove(id string) {
+	q.mu.Lock()
+	delete(q.entries, id)
+	q.mu.Unlock()
+	q.deleteFile(id)
+}
+
+// Entries copies what is parked, oldest failure first.
+func (q *Queue) Entries() []Entry {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	out := make([]Entry, 0, len(q.entries))
+	for _, entry := range q.entries {
+		out = append(out, *entry)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].FirstFailed.Before(out[j].FirstFailed) })
+	return out
+}
+
+func (q *Queue) Len() int {
+	if q == nil {
+		return 0
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.entries)
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
