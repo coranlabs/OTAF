@@ -409,3 +409,36 @@ func (q *Queue) Stats() Stats {
 	out.Parked = len(q.entries)
 	return out
 }
+
+// expireLocked drops messages too old to be worth replaying.
+func (q *Queue) expireLocked(now time.Time) {
+	for id, entry := range q.entries {
+		if now.Sub(entry.FirstFailed) > q.cfg.MaxAge {
+			delete(q.entries, id)
+			q.stats.Expired++
+			q.deleteFile(id)
+		}
+	}
+}
+
+// evictLocked makes room by dropping the oldest, on the grounds that the
+// newest failure is the one still worth recovering.
+func (q *Queue) evictLocked(now time.Time) {
+	q.expireLocked(now)
+
+	for len(q.entries) >= q.cfg.MaxEntries {
+		var oldestID string
+		var oldest time.Time
+		for id, entry := range q.entries {
+			if oldestID == "" || entry.FirstFailed.Before(oldest) {
+				oldestID, oldest = id, entry.FirstFailed
+			}
+		}
+		if oldestID == "" {
+			return
+		}
+		delete(q.entries, oldestID)
+		q.stats.Overflow++
+		q.deleteFile(oldestID)
+	}
+}
