@@ -356,6 +356,19 @@ func (q *Queue) recordFailure(id string, cause error) {
 	q.persist(&snapshot)
 }
 
+// Discard forgets one parked message.
+func (q *Queue) Discard(id string) bool {
+	q.mu.Lock()
+	_, known := q.entries[id]
+	delete(q.entries, id)
+	q.mu.Unlock()
+
+	if known {
+		q.deleteFile(id)
+	}
+	return known
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
