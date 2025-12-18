@@ -442,3 +442,28 @@ func (q *Queue) evictLocked(now time.Time) {
 		q.deleteFile(oldestID)
 	}
 }
+
+func (q *Queue) persist(entry *Entry) {
+	if q.cfg.Dir == "" {
+		return
+	}
+	body, err := json.Marshal(entry)
+	if err != nil {
+		q.logger.WithError(err).WithField("id", entry.ID).Warn("could not encode parked message")
+		return
+	}
+	if err := os.WriteFile(q.pathFor(entry.ID), body, 0o600); err != nil {
+		q.logger.WithError(err).WithField("id", entry.ID).Warn("could not write parked message")
+	}
+}
+
+func (q *Queue) deleteFile(id string) {
+	if q.cfg.Dir == "" {
+		return
+	}
+	if err := os.Remove(q.pathFor(id)); err != nil && !os.IsNotExist(err) {
+		q.logger.WithError(err).WithField("id", id).Warn("could not remove parked message")
+	}
+}
+
+func (q *Queue) pathFor(id string) string { return filepath.Join(q.cfg.Dir, id+".json") }
