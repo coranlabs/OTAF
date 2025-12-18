@@ -248,6 +248,51 @@ func (q *Queue) RetryAll(ctx context.Context) (recovered, failed int) {
 	return q.replay(ctx, true)
 }
 
+func (q *Queue) replay(ctx context.Context, ignoreBackoff bool) (recovered, failed int) {
+	now := q.now()
+
+	q.mu.Lock()
+	handler := q.handler
+	q.expireLocked(now)
+
+	var due []Entry
+	for _, entry := range q.entries {
+		if ignoreBackoff || entry.Due(now) {
+			due = append(due, *entry)
+		}
+	}
+	q.mu.Unlock()
+
+	if handler == nil || len(due) == 0 {
+		return 0, 0
+	}
+	sort.Slice(due, func(i, j int) bool { return due[i].FirstFailed.Before(due[j].FirstFailed) })
+
+	for _, entry := range due {
+		if ctx.Err() != nil {
+			break
+		}
+
+		if err := handler.Handle(ctx, entry.Message); err != nil {
+			failed++
+			q.recordFailure(entry.ID, err)
+			continue
+		}
+
+		recovered++
+		q.remove(entry.ID)
+
+		q.mu.Lock()
+		q.stats.Recovered++
+		q.mu.Unlock()
+
+		q.logger.WithFields(logrus.Fields{
+			"id": entry.ID, "attempts": entry.Attempts + 1,
+		}).Info("parked message recovered")
+	}
+	return recovered, failed
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
