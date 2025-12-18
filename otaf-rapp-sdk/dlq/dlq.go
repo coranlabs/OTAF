@@ -177,6 +177,43 @@ func (q *Queue) Wrap(handler ingest.Handler) ingest.Handler {
 	})
 }
 
+// Park holds a message for another attempt. A message the handler says can
+// never be processed is counted and dropped rather than parked.
+func (q *Queue) Park(m ingest.Message, cause error) {
+	if cause != nil && !retry.Retryable(cause) {
+		q.mu.Lock()
+		q.stats.Rejected++
+		q.mu.Unlock()
+
+		q.logger.WithError(cause).WithField("source", m.Source).
+			Warn("message cannot be processed, discarding rather than parking")
+		return
+	}
+
+	now := q.now()
+	entry := &Entry{
+		ID:          newID(),
+		Message:     m,
+		Reason:      reasonOf(cause),
+		Attempts:    0,
+		FirstFailed: now,
+		LastFailed:  now,
+		NextAttempt: now.Add(q.cfg.Backoff.Backoff(1)),
+	}
+
+	q.mu.Lock()
+	q.evictLocked(now)
+	q.entries[entry.ID] = entry
+	q.stats.Accepted++
+	depth := len(q.entries)
+	q.mu.Unlock()
+
+	q.persist(entry)
+	q.logger.WithFields(logrus.Fields{
+		"id": entry.ID, "source": m.Source, "parked": depth,
+	}).Warn("message parked for retry")
+}
+
 func (q *Queue) Stats() Stats {
 	if q == nil {
 		return Stats{}
