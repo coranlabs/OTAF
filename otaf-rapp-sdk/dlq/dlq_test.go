@@ -172,3 +172,70 @@ func TestRetryAllIgnoresBackoff(t *testing.T) {
 		t.Error("RetryAll should replay regardless of the backoff")
 	}
 }
+
+// A message no amount of retrying will fix must not fill the queue.
+func TestPermanentFailuresAreNotParked(t *testing.T) {
+	q, _ := newQueue(t, Config{})
+	handler := &flaky{failing: true, err: retry.Permanent(errors.New("malformed payload"))}
+	wrapped := q.Wrap(handler)
+
+	if err := wrapped.Handle(context.Background(), message("junk")); err == nil {
+		t.Fatal("the failure should still surface")
+	}
+	if q.Len() != 0 {
+		t.Error("a permanently bad message should not be parked")
+	}
+	if q.Stats().Rejected != 1 {
+		t.Errorf("rejected = %d, want 1", q.Stats().Rejected)
+	}
+}
+
+// A classified failure needs no hand-labelling: the category already says
+// whether another attempt could help.
+func TestClassifiedFailuresDecideParkingByThemselves(t *testing.T) {
+	cases := map[string]struct {
+		err        error
+		wantParked int
+	}{
+		"bad data is dropped":           {errs.New(errs.CategoryData, "MALFORMED", "not JSON"), 0},
+		"a platform outage is parked":   {errs.New(errs.CategoryPlatform, "A1_UNAVAILABLE", "service away"), 1},
+		"an unreachable node is parked": {errs.New(errs.CategoryNetwork, "O1_UNREACHABLE", "no answer"), 1},
+		"misconfiguration is dropped":   {errs.New(errs.CategoryConfig, "CONFIG_MISSING", "no file"), 0},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			q, _ := newQueue(t, Config{})
+			handler := &flaky{failing: true, err: tc.err}
+
+			_ = q.Wrap(handler).Handle(context.Background(), message("one"))
+
+			if q.Len() != tc.wantParked {
+				t.Errorf("parked = %d, want %d", q.Len(), tc.wantParked)
+			}
+		})
+	}
+}
+
+func TestGivesUpAfterMaxAttempts(t *testing.T) {
+	q, c := newQueue(t, Config{
+		MaxAttempts: 3,
+		Backoff:     retry.Policy{Attempts: 3, Initial: time.Second, Max: time.Second, Multiplier: 1},
+	})
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+
+	_ = wrapped.Handle(context.Background(), message("one"))
+
+	for i := 0; i < 5 && q.Len() > 0; i++ {
+		c.advance(time.Minute)
+		q.RetryDue(context.Background())
+	}
+
+	if q.Len() != 0 {
+		t.Error("a message that keeps failing should eventually be given up on")
+	}
+	if q.Stats().Exhausted != 1 {
+		t.Errorf("exhausted = %d, want 1", q.Stats().Exhausted)
+	}
+}
