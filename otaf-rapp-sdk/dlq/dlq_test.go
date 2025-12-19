@@ -104,3 +104,71 @@ func newQueue(t *testing.T, cfg Config) (*Queue, *clock) {
 func message(payload string) ingest.Message {
 	return ingest.Message{Source: "test", Payload: []byte(payload), Received: time.Now()}
 }
+
+// The point of the queue: a handler that failed because something it depends
+// on was briefly away does not lose the data.
+func TestFailedMessageIsParkedAndRecovered(t *testing.T) {
+	q, c := newQueue(t, Config{})
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+
+	ctx := context.Background()
+	if err := wrapped.Handle(ctx, message("one")); err == nil {
+		t.Fatal("the failure should still surface to the pipeline")
+	}
+	if q.Len() != 1 {
+		t.Fatalf("parked = %d, want 1", q.Len())
+	}
+
+	handler.recover()
+	c.advance(time.Hour)
+
+	recovered, failed := q.RetryDue(ctx)
+	if recovered != 1 || failed != 0 {
+		t.Errorf("recovered/failed = %d/%d, want 1/0", recovered, failed)
+	}
+	if q.Len() != 0 {
+		t.Error("a recovered message should leave the queue")
+	}
+	if handler.count() != 1 {
+		t.Errorf("handler accepted %d messages, want 1", handler.count())
+	}
+}
+
+// Backoff must actually hold a message back, or the queue becomes a hot loop
+// against a service that is still down.
+func TestBackoffHoldsAMessageBack(t *testing.T) {
+	q, c := newQueue(t, Config{
+		Backoff: retry.Policy{Attempts: 5, Initial: time.Minute, Max: time.Hour, Multiplier: 2},
+	})
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+
+	_ = wrapped.Handle(context.Background(), message("one"))
+	handler.recover()
+
+	if recovered, _ := q.RetryDue(context.Background()); recovered != 0 {
+		t.Error("a message should not be retried before its backoff has elapsed")
+	}
+
+	c.advance(2 * time.Minute)
+	if recovered, _ := q.RetryDue(context.Background()); recovered != 1 {
+		t.Error("the message should be retried once the backoff has elapsed")
+	}
+}
+
+// An operator who knows the obstacle has gone should not have to wait.
+func TestRetryAllIgnoresBackoff(t *testing.T) {
+	q, _ := newQueue(t, Config{
+		Backoff: retry.Policy{Attempts: 5, Initial: time.Hour, Max: time.Hour, Multiplier: 1},
+	})
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+
+	_ = wrapped.Handle(context.Background(), message("one"))
+	handler.recover()
+
+	if recovered, _ := q.RetryAll(context.Background()); recovered != 1 {
+		t.Error("RetryAll should replay regardless of the backoff")
+	}
+}
