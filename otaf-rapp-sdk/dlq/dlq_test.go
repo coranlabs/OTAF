@@ -37,6 +37,27 @@ func quietLogger() *logrus.Logger {
 	return l
 }
 
+// flaky refuses until it is told to stop.
+type flaky struct {
+	mu       sync.Mutex
+	failing  bool
+	err      error
+	accepted [][]byte
+}
+
+func (f *flaky) Handle(_ context.Context, m ingest.Message) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failing {
+		if f.err != nil {
+			return f.err
+		}
+		return errors.New("dependency unavailable")
+	}
+	f.accepted = append(f.accepted, m.Payload)
+	return nil
+}
+
 type clock struct {
 	mu  sync.Mutex
 	now time.Time
