@@ -64,7 +64,23 @@ func (f *flaky) recover() {
 	f.failing = false
 }
 
+func (f *flaky) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.accepted)
+}
+
 type clock struct {
 	mu  sync.Mutex
 	now time.Time
+}
+
+func newClock() *clock {
+	return &clock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+}
+
+func (c *clock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
 }
