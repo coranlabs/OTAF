@@ -90,3 +90,13 @@ func (c *clock) advance(d time.Duration) {
 	defer c.mu.Unlock()
 	c.now = c.now.Add(d)
 }
+
+func newQueue(t *testing.T, cfg Config) (*Queue, *clock) {
+	t.Helper()
+	c := newClock()
+	q, err := New(cfg, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return q.WithClock(c.Now), c
+}
