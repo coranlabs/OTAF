@@ -58,6 +58,12 @@ func (f *flaky) Handle(_ context.Context, m ingest.Message) error {
 	return nil
 }
 
+func (f *flaky) recover() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.failing = false
+}
+
 type clock struct {
 	mu  sync.Mutex
 	now time.Time
