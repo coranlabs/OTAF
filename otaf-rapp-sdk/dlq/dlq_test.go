@@ -239,3 +239,79 @@ func TestGivesUpAfterMaxAttempts(t *testing.T) {
 		t.Errorf("exhausted = %d, want 1", q.Stats().Exhausted)
 	}
 }
+
+func TestOldMessagesExpire(t *testing.T) {
+	q, c := newQueue(t, Config{MaxAge: time.Hour})
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+
+	_ = wrapped.Handle(context.Background(), message("one"))
+	c.advance(2 * time.Hour)
+
+	q.RetryDue(context.Background())
+
+	if q.Len() != 0 {
+		t.Error("a message parked longer than the maximum age should be discarded")
+	}
+	if q.Stats().Expired != 1 {
+		t.Errorf("expired = %d, want 1", q.Stats().Expired)
+	}
+}
+
+// At the limit the newest failure is the one still worth recovering.
+func TestOverflowDropsTheOldest(t *testing.T) {
+	q, c := newQueue(t, Config{MaxEntries: 2})
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+
+	for _, payload := range []string{"first", "second", "third"} {
+		c.advance(time.Second)
+		_ = wrapped.Handle(context.Background(), message(payload))
+	}
+
+	if q.Len() != 2 {
+		t.Fatalf("parked = %d, want it capped at 2", q.Len())
+	}
+	if q.Stats().Overflow != 1 {
+		t.Errorf("overflow = %d, want 1", q.Stats().Overflow)
+	}
+
+	entries := q.Entries()
+	if string(entries[0].Message.Payload) == "first" {
+		t.Error("the oldest entry should have been dropped")
+	}
+}
+
+// A restart must not lose what was parked; that is the reason for the disk.
+func TestParkedMessagesSurviveARestart(t *testing.T) {
+	dir := t.TempDir()
+
+	first, _ := newQueue(t, Config{Dir: dir})
+	handler := &flaky{failing: true}
+	_ = first.Wrap(handler).Handle(context.Background(), message("survive me"))
+
+	if first.Len() != 1 {
+		t.Fatalf("parked = %d, want 1", first.Len())
+	}
+
+	// A fresh queue over the same directory stands in for a restarted rApp.
+	second, c := newQueue(t, Config{Dir: dir})
+	if second.Len() != 1 {
+		t.Fatalf("after restart parked = %d, want 1", second.Len())
+	}
+
+	recovered := &flaky{}
+	wrapped := second.Wrap(recovered)
+	_ = wrapped
+	c.advance(time.Hour)
+
+	if got, _ := second.RetryAll(context.Background()); got != 1 {
+		t.Fatal("the restored message should be replayable")
+	}
+	if recovered.count() != 1 {
+		t.Fatal("the handler should have received the restored message")
+	}
+	if string(recovered.accepted[0]) != "survive me" {
+		t.Errorf("payload = %q, want it intact across the restart", recovered.accepted[0])
+	}
+}
