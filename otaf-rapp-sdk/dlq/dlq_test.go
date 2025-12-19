@@ -100,3 +100,7 @@ func newQueue(t *testing.T, cfg Config) (*Queue, *clock) {
 	}
 	return q.WithClock(c.Now), c
 }
+
+func message(payload string) ingest.Message {
+	return ingest.Message{Source: "test", Payload: []byte(payload), Received: time.Now()}
+}
