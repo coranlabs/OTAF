@@ -315,3 +315,24 @@ func TestParkedMessagesSurviveARestart(t *testing.T) {
 		t.Errorf("payload = %q, want it intact across the restart", recovered.accepted[0])
 	}
 }
+
+func TestRecoveredMessageIsRemovedFromDisk(t *testing.T) {
+	dir := t.TempDir()
+	q, c := newQueue(t, Config{Dir: dir})
+
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+	_ = wrapped.Handle(context.Background(), message("one"))
+
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.json")); len(files) != 1 {
+		t.Fatalf("files on disk = %d, want 1", len(files))
+	}
+
+	handler.recover()
+	c.advance(time.Hour)
+	q.RetryDue(context.Background())
+
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.json")); len(files) != 0 {
+		t.Errorf("files on disk = %d, want none once recovered", len(files))
+	}
+}
