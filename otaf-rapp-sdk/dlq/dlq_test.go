@@ -336,3 +336,31 @@ func TestRecoveredMessageIsRemovedFromDisk(t *testing.T) {
 		t.Errorf("files on disk = %d, want none once recovered", len(files))
 	}
 }
+
+// Losing one unreadable file silently would be worse than keeping it.
+func TestCorruptFileIsSetAsideNotDropped(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "broken.json"), []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	q, _ := newQueue(t, Config{Dir: dir})
+
+	if q.Len() != 0 {
+		t.Error("an unreadable file should not become an entry")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "broken.json.corrupt")); err != nil {
+		t.Error("an unreadable file should be set aside for inspection, not deleted")
+	}
+}
+
+func TestMemoryOnlyWhenNoDirectoryConfigured(t *testing.T) {
+	q, _ := newQueue(t, Config{})
+
+	handler := &flaky{failing: true}
+	_ = q.Wrap(handler).Handle(context.Background(), message("one"))
+
+	if q.Len() != 1 {
+		t.Error("a queue with no directory should still hold messages in memory")
+	}
+}
