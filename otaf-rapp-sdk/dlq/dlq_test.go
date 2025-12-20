@@ -364,3 +364,70 @@ func TestMemoryOnlyWhenNoDirectoryConfigured(t *testing.T) {
 		t.Error("a queue with no directory should still hold messages in memory")
 	}
 }
+
+func TestRetryByID(t *testing.T) {
+	q, _ := newQueue(t, Config{})
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+
+	_ = wrapped.Handle(context.Background(), message("one"))
+	id := q.Entries()[0].ID
+
+	if err := q.Retry(context.Background(), id); err == nil {
+		t.Error("retrying while the handler still fails should report the failure")
+	}
+
+	handler.recover()
+	if err := q.Retry(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	if q.Len() != 0 {
+		t.Error("a recovered message should leave the queue")
+	}
+	if err := q.Retry(context.Background(), "no-such-id"); err == nil {
+		t.Error("retrying an unknown id should report an error")
+	}
+}
+
+func TestDiscard(t *testing.T) {
+	q, _ := newQueue(t, Config{})
+	handler := &flaky{failing: true}
+	_ = q.Wrap(handler).Handle(context.Background(), message("one"))
+
+	id := q.Entries()[0].ID
+	if !q.Discard(id) {
+		t.Error("discarding a parked message should report true")
+	}
+	if q.Discard(id) {
+		t.Error("discarding it twice should report false")
+	}
+	if q.Len() != 0 {
+		t.Error("the message should be gone")
+	}
+}
+
+func TestStartReplaysUntilContextEnds(t *testing.T) {
+	// Real time here: the loop and the backoff have to agree on a clock, and
+	// this is the one they use in production.
+	q, err := New(Config{
+		Interval: 10 * time.Millisecond,
+		Backoff:  retry.Policy{Attempts: 5, Initial: time.Millisecond, Max: 5 * time.Millisecond, Multiplier: 1},
+	}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := &flaky{failing: true}
+	wrapped := q.Wrap(handler)
+	_ = wrapped.Handle(context.Background(), message("one"))
+
+	handler.recover()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	_ = q.Start(ctx)
+
+	if q.Len() != 0 {
+		t.Error("the background loop should have replayed the parked message")
+	}
+}
