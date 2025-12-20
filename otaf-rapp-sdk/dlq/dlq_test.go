@@ -431,3 +431,17 @@ func TestStartReplaysUntilContextEnds(t *testing.T) {
 		t.Error("the background loop should have replayed the parked message")
 	}
 }
+
+func TestNilQueueIsSafe(t *testing.T) {
+	var q *Queue
+
+	if q.Len() != 0 {
+		t.Error("a nil queue should report nothing parked")
+	}
+	if (q.Stats() != Stats{}) {
+		t.Error("a nil queue should report zero stats")
+	}
+	if err := q.Start(context.Background()); err != nil {
+		t.Errorf("starting a nil queue should be a no-op, got %v", err)
+	}
+}
