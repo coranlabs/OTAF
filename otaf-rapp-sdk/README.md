@@ -21,6 +21,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `ingest/httpsrc` | HTTP source for data delivered by a DME job |
 | `ingest/kafkasrc` | Kafka source with SASL/SCRAM authentication |
 | `pm` | Decoding of 3GPP TS 32.435 XML and VES perf3gpp into a common representation |
+| `dlq` | Persistent dead-letter queue with replay |
 
 ## Licence
 
