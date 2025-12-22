@@ -71,3 +71,5 @@ type ClassifierFunc[K any] struct {
 }
 
 func (c ClassifierFunc[K]) Name() string { return c.Label }
+
+func (c ClassifierFunc[K]) Classify(samples []Sample[K]) Verdict { return c.Fn(samples) }
