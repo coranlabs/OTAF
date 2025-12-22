@@ -53,3 +53,21 @@ type Sample[K any] struct {
 	At  time.Time `json:"at"`
 	KPI K         `json:"kpi"`
 }
+
+// Classifier turns a window of samples into a verdict. Implementations belong
+// to the rApp: this is the seam between the SDK's plumbing and your judgement.
+//
+// Classify is called with at least one sample, oldest first, and must not
+// retain or modify the slice.
+type Classifier[K any] interface {
+	Name() string
+	Classify(samples []Sample[K]) Verdict
+}
+
+// ClassifierFunc adapts a function to Classifier.
+type ClassifierFunc[K any] struct {
+	Label string
+	Fn    func(samples []Sample[K]) Verdict
+}
+
+func (c ClassifierFunc[K]) Name() string { return c.Label }
