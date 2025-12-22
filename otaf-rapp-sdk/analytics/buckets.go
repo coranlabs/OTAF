@@ -53,3 +53,12 @@ func NewBuckets(width time.Duration, count int) *Buckets {
 		starts: make([]time.Time, count),
 	}
 }
+
+// Add accumulates a value into the slot the timestamp falls in.
+func (b *Buckets) Add(at time.Time, field string, v float64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	slot := b.slotFor(at)
+	slot.Values[field] += v
+}
