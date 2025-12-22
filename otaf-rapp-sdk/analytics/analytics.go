@@ -28,3 +28,22 @@ package analytics
 import "time"
 
 type State string
+
+const StateUnknown State = "UNKNOWN"
+
+func (s State) String() string { return string(s) }
+
+// Verdict is what a Classifier concluded from a window of samples.
+type Verdict struct {
+	State State `json:"state"`
+
+	// Score is free for the classifier to use, or leave at zero.
+	Score float64 `json:"score,omitempty"`
+
+	// Signals are the intermediate values behind the verdict, carried so an
+	// operator can see why rather than only what.
+	Signals map[string]float64 `json:"signals,omitempty"`
+
+	// Reason explains the verdict in a line, for logs and for the UI.
+	Reason string `json:"reason,omitempty"`
+}
