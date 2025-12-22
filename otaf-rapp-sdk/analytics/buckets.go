@@ -37,3 +37,19 @@ type Buckets struct {
 	slots  []Bucket
 	starts []time.Time
 }
+
+// NewBuckets keeps count slots of the given width. A day of two-hour slots is
+// twelve of them.
+func NewBuckets(width time.Duration, count int) *Buckets {
+	if width <= 0 {
+		width = time.Hour
+	}
+	if count < 1 {
+		count = 1
+	}
+	return &Buckets{
+		width:  width,
+		slots:  make([]Bucket, count),
+		starts: make([]time.Time, count),
+	}
+}
