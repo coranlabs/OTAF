@@ -47,3 +47,9 @@ type Verdict struct {
 	// Reason explains the verdict in a line, for logs and for the UI.
 	Reason string `json:"reason,omitempty"`
 }
+
+// Sample is one observation of one entity.
+type Sample[K any] struct {
+	At  time.Time `json:"at"`
+	KPI K         `json:"kpi"`
+}
