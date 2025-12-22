@@ -23,3 +23,17 @@ type Bucket struct {
 	Start  time.Time          `json:"start"`
 	Values map[string]float64 `json:"values"`
 }
+
+// Buckets counts things into fixed time slots and keeps a fixed number of
+// them, so an rApp can answer "how much did this happen over the last day"
+// without a database.
+//
+// Slots are aligned to the wall clock rather than to when the rApp started, so
+// two rApps agree on which slot an event falls in, and a restart does not
+// shift the boundaries.
+type Buckets struct {
+	mu     sync.Mutex
+	width  time.Duration
+	slots  []Bucket
+	starts []time.Time
+}
