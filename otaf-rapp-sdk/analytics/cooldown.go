@@ -28,3 +28,5 @@ type Cooldown struct {
 func NewCooldown(period time.Duration) *Cooldown {
 	return &Cooldown{period: period, last: map[string]time.Time{}}
 }
+
+func (c *Cooldown) Period() time.Duration { return c.period }
