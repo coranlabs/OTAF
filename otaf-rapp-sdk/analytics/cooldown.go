@@ -24,3 +24,7 @@ type Cooldown struct {
 	period time.Duration
 	last   map[string]time.Time
 }
+
+func NewCooldown(period time.Duration) *Cooldown {
+	return &Cooldown{period: period, last: map[string]time.Time{}}
+}
