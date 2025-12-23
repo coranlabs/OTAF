@@ -65,3 +65,26 @@ func (b *Buckets) Add(at time.Time, field string, v float64) {
 
 // Incr adds one, for counting events.
 func (b *Buckets) Incr(at time.Time, field string) { b.Add(at, field, 1) }
+
+// Window returns the slots covering the period ending at now, oldest first.
+// Slots with nothing in them are returned empty rather than omitted, so a
+// chart has a point for every interval.
+func (b *Buckets) Window(now time.Time) []Bucket {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	count := len(b.slots)
+	out := make([]Bucket, 0, count)
+
+	for i := count - 1; i >= 0; i-- {
+		start := now.Truncate(b.width).Add(-time.Duration(i) * b.width)
+		index := b.indexOf(start)
+
+		if b.starts[index].Equal(start) {
+			out = append(out, Bucket{Start: start, Values: copyValues(b.slots[index].Values)})
+			continue
+		}
+		out = append(out, Bucket{Start: start, Values: map[string]float64{}})
+	}
+	return out
+}
