@@ -84,3 +84,25 @@ func (c *Cooldown) Clear(key string) {
 	defer c.mu.Unlock()
 	delete(c.last, key)
 }
+
+// Evict forgets keys that have been free for longer than the cooldown, so a
+// guard over a changing population does not grow without bound.
+func (c *Cooldown) Evict(at time.Time) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var dropped int
+	for key, last := range c.last {
+		if at.Sub(last) > c.period*2 {
+			delete(c.last, key)
+			dropped++
+		}
+	}
+	return dropped
+}
+
+func (c *Cooldown) Len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.last)
+}
