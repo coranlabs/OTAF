@@ -59,3 +59,28 @@ func (c *Cooldown) Mark(key string, at time.Time) {
 	defer c.mu.Unlock()
 	c.last[key] = at
 }
+
+// Remaining is how long until the key is free again, zero if it already is.
+func (c *Cooldown) Remaining(key string, at time.Time) time.Duration {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.period <= 0 {
+		return 0
+	}
+	last, seen := c.last[key]
+	if !seen {
+		return 0
+	}
+	if elapsed := at.Sub(last); elapsed < c.period {
+		return c.period - elapsed
+	}
+	return 0
+}
+
+// Clear frees a key immediately, for when the condition it guarded has gone.
+func (c *Cooldown) Clear(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.last, key)
+}
