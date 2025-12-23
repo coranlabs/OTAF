@@ -88,3 +88,34 @@ func (b *Buckets) Window(now time.Time) []Bucket {
 	}
 	return out
 }
+
+// Total sums one field across the whole window.
+func (b *Buckets) Total(now time.Time, field string) float64 {
+	var sum float64
+	for _, bucket := range b.Window(now) {
+		sum += bucket.Values[field]
+	}
+	return sum
+}
+
+// slotFor returns the slot a timestamp belongs in, resetting it first if it
+// still holds an older period. Callers hold the lock.
+func (b *Buckets) slotFor(at time.Time) *Bucket {
+	start := at.Truncate(b.width)
+	index := b.indexOf(start)
+
+	if !b.starts[index].Equal(start) {
+		b.starts[index] = start
+		b.slots[index] = Bucket{Start: start, Values: map[string]float64{}}
+	}
+	return &b.slots[index]
+}
+
+func (b *Buckets) indexOf(start time.Time) int {
+	slot := start.UnixNano() / int64(b.width)
+	index := int(slot % int64(len(b.slots)))
+	if index < 0 {
+		index += len(b.slots)
+	}
+	return index
+}
