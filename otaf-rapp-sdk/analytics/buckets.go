@@ -62,3 +62,6 @@ func (b *Buckets) Add(at time.Time, field string, v float64) {
 	slot := b.slotFor(at)
 	slot.Values[field] += v
 }
+
+// Incr adds one, for counting events.
+func (b *Buckets) Incr(at time.Time, field string) { b.Add(at, field, 1) }
