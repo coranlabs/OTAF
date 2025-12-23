@@ -119,3 +119,11 @@ func (b *Buckets) indexOf(start time.Time) int {
 	}
 	return index
 }
+
+func copyValues(in map[string]float64) map[string]float64 {
+	out := make(map[string]float64, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
