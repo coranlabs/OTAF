@@ -106,3 +106,11 @@ func (c *Cooldown) Len() int {
 	defer c.mu.Unlock()
 	return len(c.last)
 }
+
+func (c *Cooldown) allowLocked(key string, now time.Time) bool {
+	if c.period <= 0 {
+		return true
+	}
+	last, seen := c.last[key]
+	return !seen || now.Sub(last) >= c.period
+}
