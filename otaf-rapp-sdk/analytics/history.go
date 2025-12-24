@@ -28,3 +28,23 @@ func NewHistory[K any](limit int) *History[K] {
 	}
 	return &History[K]{limit: limit, samples: make([]Sample[K], 0, limit)}
 }
+
+// Append records a sample and drops the oldest once the window is full. It
+// reports false for a sample that is not newer than the last one, which is how
+// a repeated or out-of-order report is rejected rather than silently
+// corrupting the trend.
+func (h *History[K]) Append(s Sample[K]) bool {
+	if last, ok := h.Latest(); ok && !s.At.After(last.At) {
+		return false
+	}
+
+	h.samples = append(h.samples, s)
+	if len(h.samples) > h.limit {
+		h.samples = h.samples[len(h.samples)-h.limit:]
+	}
+	return true
+}
+
+// Samples returns the window, oldest first. The slice is only valid until the
+// next Append; copy it to keep it.
+func (h *History[K]) Samples() []Sample[K] { return h.samples }
