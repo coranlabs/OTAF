@@ -64,3 +64,7 @@ func (h *History[K]) Oldest() (Sample[K], bool) {
 	}
 	return h.samples[0], true
 }
+
+func (h *History[K]) Len() int { return len(h.samples) }
+
+func (h *History[K]) Limit() int { return h.limit }
