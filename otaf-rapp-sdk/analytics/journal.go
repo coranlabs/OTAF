@@ -92,3 +92,9 @@ func (j *Journal[T]) Total() uint64 {
 	defer j.mu.RUnlock()
 	return j.total
 }
+
+func (j *Journal[T]) Reset() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.entries = j.entries[:0]
+}
