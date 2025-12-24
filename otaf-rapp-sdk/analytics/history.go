@@ -48,3 +48,19 @@ func (h *History[K]) Append(s Sample[K]) bool {
 // Samples returns the window, oldest first. The slice is only valid until the
 // next Append; copy it to keep it.
 func (h *History[K]) Samples() []Sample[K] { return h.samples }
+
+func (h *History[K]) Latest() (Sample[K], bool) {
+	if len(h.samples) == 0 {
+		var zero Sample[K]
+		return zero, false
+	}
+	return h.samples[len(h.samples)-1], true
+}
+
+func (h *History[K]) Oldest() (Sample[K], bool) {
+	if len(h.samples) == 0 {
+		var zero Sample[K]
+		return zero, false
+	}
+	return h.samples[0], true
+}
