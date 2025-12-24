@@ -68,3 +68,25 @@ func (h *History[K]) Oldest() (Sample[K], bool) {
 func (h *History[K]) Len() int { return len(h.samples) }
 
 func (h *History[K]) Limit() int { return h.limit }
+
+// Span is the time between the oldest and newest sample. A classifier that
+// needs a minimum period of evidence can check this rather than counting
+// samples, which say nothing about how long they took to arrive.
+func (h *History[K]) Span() time.Duration {
+	if len(h.samples) < 2 {
+		return 0
+	}
+	return h.samples[len(h.samples)-1].At.Sub(h.samples[0].At)
+}
+
+// Values pulls one number out of every sample, for the statistics helpers.
+func (h *History[K]) Values(pick func(K) float64) []float64 {
+	out := make([]float64, len(h.samples))
+	for i, s := range h.samples {
+		out[i] = pick(s.KPI)
+	}
+	return out
+}
+
+// Reset empties the window, keeping the limit.
+func (h *History[K]) Reset() { h.samples = h.samples[:0] }
