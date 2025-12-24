@@ -31,3 +31,37 @@ func NewJournal[T any](keep int) *Journal[T] {
 	}
 	return &Journal[T]{keep: keep, entries: make([]T, 0, keep)}
 }
+
+func (j *Journal[T]) Append(entry T) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	j.entries = append(j.entries, entry)
+	if len(j.entries) > j.keep {
+		j.entries = j.entries[len(j.entries)-j.keep:]
+	}
+	j.total++
+}
+
+// Entries returns a copy, oldest first.
+func (j *Journal[T]) Entries() []T {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+
+	out := make([]T, len(j.entries))
+	copy(out, j.entries)
+	return out
+}
+
+// Recent returns a copy of the last n entries, newest last.
+func (j *Journal[T]) Recent(n int) []T {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+
+	if n <= 0 || n > len(j.entries) {
+		n = len(j.entries)
+	}
+	out := make([]T, n)
+	copy(out, j.entries[len(j.entries)-n:])
+	return out
+}
