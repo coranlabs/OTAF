@@ -65,3 +65,30 @@ func (j *Journal[T]) Recent(n int) []T {
 	copy(out, j.entries[len(j.entries)-n:])
 	return out
 }
+
+// Latest returns the most recent entry.
+func (j *Journal[T]) Latest() (T, bool) {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+
+	if len(j.entries) == 0 {
+		var zero T
+		return zero, false
+	}
+	return j.entries[len(j.entries)-1], true
+}
+
+func (j *Journal[T]) Len() int {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+	return len(j.entries)
+}
+
+// Total counts everything ever appended, including entries since dropped, so a
+// status endpoint can distinguish a quiet rApp from one whose journal has
+// simply rolled over.
+func (j *Journal[T]) Total() uint64 {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+	return j.total
+}
