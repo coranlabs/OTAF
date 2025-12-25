@@ -24,3 +24,5 @@ const (
 	defaultHistory    = 16
 	defaultStaleAfter = 5 * time.Minute
 )
+
+type RegistryOption[K any] func(*Registry[K])
