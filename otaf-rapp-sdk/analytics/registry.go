@@ -70,3 +70,29 @@ type Registry[K any] struct {
 }
 
 type RegistryOption[K any] func(*Registry[K])
+
+// WithClassifier sets what turns samples into a verdict. Without one, the
+// registry still keeps history but every verdict stays unknown.
+func WithClassifier[K any](c Classifier[K]) RegistryOption[K] {
+	return func(r *Registry[K]) { r.classifier = c }
+}
+
+// WithHistorySize bounds how many samples are kept per entity.
+func WithHistorySize[K any](n int) RegistryOption[K] {
+	return func(r *Registry[K]) {
+		if n > 0 {
+			r.historySize = n
+		}
+	}
+}
+
+// WithStaleAfter sets how long an entity may go unheard before Stale reports
+// it. It is measured against arrival, not the timestamp inside the report, so
+// a stopped feed is detected even if it was replaying old data.
+func WithStaleAfter[K any](d time.Duration) RegistryOption[K] {
+	return func(r *Registry[K]) {
+		if d > 0 {
+			r.staleAfter = d
+		}
+	}
+}
