@@ -118,3 +118,68 @@ func NewRegistry[K any](opts ...RegistryOption[K]) *Registry[K] {
 	}
 	return r
 }
+
+// Observe records a sample and re-evaluates the entity. This is the one call
+// an rApp makes per incoming report.
+func (r *Registry[K]) Observe(id string, at time.Time, kpi K) Result {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if at.IsZero() {
+		at = r.now()
+	}
+
+	entity, known := r.entities[id]
+	if !known {
+		entity = &Entity[K]{
+			ID:      id,
+			History: NewHistory[K](r.historySize),
+			Verdict: Verdict{State: StateUnknown},
+		}
+		r.entities[id] = entity
+	}
+
+	previous := entity.Verdict.State
+
+	if !entity.History.Append(Sample[K]{At: at, KPI: kpi}) {
+		return Result{
+			Entity:   id,
+			Accepted: false,
+			Verdict:  entity.Verdict,
+			Previous: previous,
+			Samples:  entity.History.Len(),
+			At:       at,
+		}
+	}
+
+	entity.Reported = at
+	entity.Observed = r.now()
+
+	if r.classifier != nil {
+		entity.Verdict = r.classifier.Classify(entity.History.Samples())
+	}
+
+	return Result{
+		Entity:   id,
+		Accepted: true,
+		Verdict:  entity.Verdict,
+		Previous: previous,
+		Changed:  entity.Verdict.State != previous,
+		Samples:  entity.History.Len(),
+		At:       at,
+	}
+}
+
+// With runs fn against one entity while the registry is locked, for the cases
+// a snapshot cannot serve. Do not retain the pointer beyond fn.
+func (r *Registry[K]) With(id string, fn func(*Entity[K])) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entity, ok := r.entities[id]
+	if !ok {
+		return false
+	}
+	fn(entity)
+	return true
+}
