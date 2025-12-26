@@ -183,3 +183,19 @@ func (r *Registry[K]) With(id string, fn func(*Entity[K])) bool {
 	fn(entity)
 	return true
 }
+
+// Each visits every entity while the registry is locked, in id order.
+func (r *Registry[K]) Each(fn func(*Entity[K])) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, id := range r.sortedIDs() {
+		fn(r.entities[id])
+	}
+}
+
+func (r *Registry[K]) Len() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.entities)
+}
