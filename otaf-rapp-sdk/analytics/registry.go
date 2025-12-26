@@ -317,3 +317,20 @@ func (r *Registry[K]) Evict(after time.Duration) []string {
 	}
 	return dropped
 }
+
+// Forget removes one entity.
+func (r *Registry[K]) Forget(id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	_, ok := r.entities[id]
+	delete(r.entities, id)
+	return ok
+}
+
+func (r *Registry[K]) isStale(e *Entity[K], now time.Time) bool {
+	if e.Observed.IsZero() {
+		return true
+	}
+	return now.Sub(e.Observed) > r.staleAfter
+}
