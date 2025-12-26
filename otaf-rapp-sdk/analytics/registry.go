@@ -199,3 +199,28 @@ func (r *Registry[K]) Len() int {
 	defer r.mu.RUnlock()
 	return len(r.entities)
 }
+
+// Verdict returns one entity's current verdict.
+func (r *Registry[K]) Verdict(id string) (Verdict, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	entity, ok := r.entities[id]
+	if !ok {
+		return Verdict{}, false
+	}
+	return entity.Verdict, true
+}
+
+// Latest returns the most recent sample recorded for an entity.
+func (r *Registry[K]) Latest(id string) (Sample[K], bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	entity, ok := r.entities[id]
+	if !ok {
+		var zero Sample[K]
+		return zero, false
+	}
+	return entity.History.Latest()
+}
