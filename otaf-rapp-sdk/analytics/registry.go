@@ -224,3 +224,49 @@ func (r *Registry[K]) Latest(id string) (Sample[K], bool) {
 	}
 	return entity.History.Latest()
 }
+
+// View is a copy of one entity, safe to hold and to serialise.
+type View struct {
+	ID       string    `json:"id"`
+	State    State     `json:"state"`
+	Verdict  Verdict   `json:"verdict"`
+	Samples  int       `json:"samples"`
+	Reported time.Time `json:"reported_at"`
+	Observed time.Time `json:"observed_at"`
+	Stale    bool      `json:"stale"`
+}
+
+// Snapshot copies every entity, in id order, for a status endpoint or a
+// delivered payload.
+func (r *Registry[K]) Snapshot() []View {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	now := r.now()
+	out := make([]View, 0, len(r.entities))
+	for _, id := range r.sortedIDs() {
+		entity := r.entities[id]
+		out = append(out, View{
+			ID:       entity.ID,
+			State:    entity.Verdict.State,
+			Verdict:  entity.Verdict,
+			Samples:  entity.History.Len(),
+			Reported: entity.Reported,
+			Observed: entity.Observed,
+			Stale:    r.isStale(entity, now),
+		})
+	}
+	return out
+}
+
+// States counts entities by verdict, which is the usual thing to publish.
+func (r *Registry[K]) States() map[State]int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	out := map[State]int{}
+	for _, entity := range r.entities {
+		out[entity.Verdict.State]++
+	}
+	return out
+}
