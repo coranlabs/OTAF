@@ -270,3 +270,50 @@ func (r *Registry[K]) States() map[State]int {
 	}
 	return out
 }
+
+// Fresh reports whether an entity has been heard from recently enough to act
+// on. An entity nobody has heard from is not evidence of anything.
+func (r *Registry[K]) Fresh(id string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	entity, ok := r.entities[id]
+	return ok && !r.isStale(entity, r.now())
+}
+
+// Stale lists entities that have gone quiet, in id order.
+func (r *Registry[K]) Stale() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	now := r.now()
+	var out []string
+	for _, id := range r.sortedIDs() {
+		if r.isStale(r.entities[id], now) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// Evict forgets entities unheard from for the given period, so a registry
+// tracking a changing population does not grow without bound. A zero or
+// negative period is ignored, since forgetting everything is never intended.
+func (r *Registry[K]) Evict(after time.Duration) []string {
+	if after <= 0 {
+		return nil
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := r.now()
+	var dropped []string
+	for _, id := range r.sortedIDs() {
+		if now.Sub(r.entities[id].Observed) > after {
+			delete(r.entities, id)
+			dropped = append(dropped, id)
+		}
+	}
+	return dropped
+}
