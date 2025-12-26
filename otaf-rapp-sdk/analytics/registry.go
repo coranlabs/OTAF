@@ -334,3 +334,13 @@ func (r *Registry[K]) isStale(e *Entity[K], now time.Time) bool {
 	}
 	return now.Sub(e.Observed) > r.staleAfter
 }
+
+// Callers hold the lock.
+func (r *Registry[K]) sortedIDs() []string {
+	ids := make([]string, 0, len(r.entities))
+	for id := range r.entities {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
