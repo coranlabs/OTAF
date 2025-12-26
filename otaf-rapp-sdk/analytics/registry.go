@@ -96,3 +96,25 @@ func WithStaleAfter[K any](d time.Duration) RegistryOption[K] {
 		}
 	}
 }
+
+// WithClock replaces the source of time, for tests.
+func WithClock[K any](now func() time.Time) RegistryOption[K] {
+	return func(r *Registry[K]) {
+		if now != nil {
+			r.now = now
+		}
+	}
+}
+
+func NewRegistry[K any](opts ...RegistryOption[K]) *Registry[K] {
+	r := &Registry[K]{
+		entities:    map[string]*Entity[K]{},
+		historySize: defaultHistory,
+		staleAfter:  defaultStaleAfter,
+		now:         time.Now,
+	}
+	for _, o := range opts {
+		o(r)
+	}
+	return r
+}
