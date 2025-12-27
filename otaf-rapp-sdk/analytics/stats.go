@@ -47,3 +47,26 @@ func Min(values []float64) float64 {
 	}
 	return out
 }
+
+func Max(values []float64) float64 {
+	out, seen := 0.0, false
+	for _, v := range values {
+		if math.IsNaN(v) {
+			continue
+		}
+		if !seen || v > out {
+			out, seen = v, true
+		}
+	}
+	return out
+}
+
+// Last is the most recent value, which is usually what a threshold compares.
+func Last(values []float64) float64 {
+	for i := len(values) - 1; i >= 0; i-- {
+		if !math.IsNaN(values[i]) {
+			return values[i]
+		}
+	}
+	return 0
+}
