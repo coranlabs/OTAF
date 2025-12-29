@@ -150,3 +150,19 @@ func Slope(values []float64) float64 {
 	}
 	return (n*sumXY - sumX*sumY) / denominator
 }
+
+// ChangePct is the change from first to last as a percentage of the first.
+// It returns zero when the first value is zero, since a change from nothing
+// has no meaningful proportion.
+func ChangePct(values []float64) float64 {
+	clean := make([]float64, 0, len(values))
+	for _, v := range values {
+		if !math.IsNaN(v) {
+			clean = append(clean, v)
+		}
+	}
+	if len(clean) < 2 || clean[0] == 0 {
+		return 0
+	}
+	return (clean[len(clean)-1] - clean[0]) / math.Abs(clean[0]) * 100
+}
