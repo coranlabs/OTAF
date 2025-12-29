@@ -120,3 +120,33 @@ func StdDev(values []float64) float64 {
 	}
 	return math.Sqrt(sum / float64(n))
 }
+
+// Slope is the least-squares gradient per sample: positive when the values are
+// rising, negative when falling. It says nothing about whether that matters.
+func Slope(values []float64) float64 {
+	clean := make([]float64, 0, len(values))
+	for _, v := range values {
+		if !math.IsNaN(v) {
+			clean = append(clean, v)
+		}
+	}
+	n := float64(len(clean))
+	if n < 2 {
+		return 0
+	}
+
+	var sumX, sumY, sumXY, sumXX float64
+	for i, v := range clean {
+		x := float64(i)
+		sumX += x
+		sumY += v
+		sumXY += x * v
+		sumXX += x * x
+	}
+
+	denominator := n*sumXX - sumX*sumX
+	if denominator == 0 {
+		return 0
+	}
+	return (n*sumXY - sumX*sumY) / denominator
+}
