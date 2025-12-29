@@ -166,3 +166,15 @@ func ChangePct(values []float64) float64 {
 	}
 	return (clean[len(clean)-1] - clean[0]) / math.Abs(clean[0]) * 100
 }
+
+// Clamp01 keeps a value inside 0..1, for classifiers that normalise before
+// combining. NaN becomes zero.
+func Clamp01(v float64) float64 {
+	if math.IsNaN(v) || v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
