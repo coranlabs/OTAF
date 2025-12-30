@@ -199,3 +199,35 @@ func TestUnknownEntityIsNotFresh(t *testing.T) {
 		t.Error("an entity that was never seen cannot be fresh")
 	}
 }
+
+func TestEvictForgetsQuietEntities(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(WithClock[kpi](c.Now))
+
+	r.Observe("cell-1", c.Now(), kpi{Value: 1})
+	c.advance(10 * time.Minute)
+	r.Observe("cell-2", c.Now(), kpi{Value: 1})
+
+	dropped := r.Evict(5 * time.Minute)
+
+	if len(dropped) != 1 || dropped[0] != "cell-1" {
+		t.Errorf("dropped = %v, want [cell-1]", dropped)
+	}
+	if r.Len() != 1 {
+		t.Errorf("entities = %d, want 1", r.Len())
+	}
+}
+
+// Forgetting everything is never what a caller means.
+func TestEvictIgnoresNonPositivePeriods(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(WithClock[kpi](c.Now))
+	r.Observe("cell-1", c.Now(), kpi{Value: 1})
+
+	if dropped := r.Evict(0); dropped != nil {
+		t.Errorf("dropped = %v, want nothing", dropped)
+	}
+	if r.Len() != 1 {
+		t.Error("a zero period should evict nothing")
+	}
+}
