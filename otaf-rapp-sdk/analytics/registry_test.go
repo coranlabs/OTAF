@@ -23,3 +23,8 @@ import (
 type kpi struct {
 	Value float64
 }
+
+type clock struct {
+	mu  sync.Mutex
+	now time.Time
+}
