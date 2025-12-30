@@ -54,3 +54,35 @@ func (c *clock) Now() time.Time {
 	defer c.mu.Unlock()
 	return c.now
 }
+
+func (c *clock) advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = c.now.Add(d)
+}
+
+func TestObserveRecordsAndClassifies(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(
+		WithClassifier[kpi](threshold(80)),
+		WithClock[kpi](c.Now),
+	)
+
+	got := r.Observe("cell-1", c.Now(), kpi{Value: 20})
+
+	if !got.Accepted {
+		t.Fatal("a first sample should be accepted")
+	}
+	if got.Verdict.State != "LOW" {
+		t.Errorf("state = %s, want LOW", got.Verdict.State)
+	}
+	if got.Previous != StateUnknown {
+		t.Errorf("previous = %s, want UNKNOWN for a new entity", got.Previous)
+	}
+	if !got.Changed {
+		t.Error("moving off unknown is a change")
+	}
+	if got.Samples != 1 {
+		t.Errorf("samples = %d, want 1", got.Samples)
+	}
+}
