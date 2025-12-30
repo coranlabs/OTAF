@@ -24,7 +24,33 @@ type kpi struct {
 	Value float64
 }
 
+// A deliberately naive classifier: the SDK ships none, so tests bring their
+// own, exactly as an rApp does.
+func threshold(limit float64) Classifier[kpi] {
+	return ClassifierFunc[kpi]{
+		Label: "threshold",
+		Fn: func(samples []Sample[kpi]) Verdict {
+			latest := samples[len(samples)-1].KPI.Value
+			state := State("LOW")
+			if latest > limit {
+				state = State("HIGH")
+			}
+			return Verdict{State: state, Score: latest, Signals: map[string]float64{"value": latest}}
+		},
+	}
+}
+
 type clock struct {
 	mu  sync.Mutex
 	now time.Time
+}
+
+func newClock() *clock {
+	return &clock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+}
+
+func (c *clock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
 }
