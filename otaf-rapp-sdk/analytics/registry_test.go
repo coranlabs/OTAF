@@ -157,3 +157,45 @@ func TestHistoryIsBounded(t *testing.T) {
 		t.Errorf("history = %d, want it capped at 3", held)
 	}
 }
+
+func TestWithoutClassifierStateStaysUnknown(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(WithClock[kpi](c.Now))
+
+	got := r.Observe("cell-1", c.Now(), kpi{Value: 99})
+
+	if !got.Accepted {
+		t.Fatal("samples should still be recorded without a classifier")
+	}
+	if got.Verdict.State != StateUnknown {
+		t.Errorf("state = %s, want UNKNOWN", got.Verdict.State)
+	}
+}
+
+// Freshness is measured against arrival, so a feed that stopped is detected
+// even when it was replaying old timestamps.
+func TestStalenessFollowsArrivalNotReportTime(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(WithStaleAfter[kpi](time.Minute), WithClock[kpi](c.Now))
+
+	r.Observe("cell-1", time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), kpi{Value: 1})
+
+	if !r.Fresh("cell-1") {
+		t.Error("an old timestamp that just arrived is still fresh")
+	}
+
+	c.advance(2 * time.Minute)
+	if r.Fresh("cell-1") {
+		t.Error("an entity unheard from beyond the window is stale")
+	}
+	if stale := r.Stale(); len(stale) != 1 || stale[0] != "cell-1" {
+		t.Errorf("stale = %v, want [cell-1]", stale)
+	}
+}
+
+func TestUnknownEntityIsNotFresh(t *testing.T) {
+	r := NewRegistry[kpi]()
+	if r.Fresh("nobody") {
+		t.Error("an entity that was never seen cannot be fresh")
+	}
+}
