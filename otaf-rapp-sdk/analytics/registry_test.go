@@ -231,3 +231,58 @@ func TestEvictIgnoresNonPositivePeriods(t *testing.T) {
 		t.Error("a zero period should evict nothing")
 	}
 }
+
+func TestSnapshotIsOrderedAndCopied(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(WithClassifier[kpi](threshold(80)), WithClock[kpi](c.Now))
+
+	for _, id := range []string{"cell-3", "cell-1", "cell-2"} {
+		r.Observe(id, c.Now(), kpi{Value: 10})
+		c.advance(time.Second)
+	}
+
+	snap := r.Snapshot()
+	if len(snap) != 3 {
+		t.Fatalf("snapshot has %d entries, want 3", len(snap))
+	}
+	for i, want := range []string{"cell-1", "cell-2", "cell-3"} {
+		if snap[i].ID != want {
+			t.Errorf("snapshot[%d] = %s, want %s", i, snap[i].ID, want)
+		}
+	}
+
+	snap[0].State = "TAMPERED"
+	if again := r.Snapshot(); again[0].State == "TAMPERED" {
+		t.Error("mutating a snapshot must not affect the registry")
+	}
+}
+
+func TestStatesCountsByVerdict(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(WithClassifier[kpi](threshold(80)), WithClock[kpi](c.Now))
+
+	r.Observe("cell-1", c.Now(), kpi{Value: 10})
+	r.Observe("cell-2", c.Now(), kpi{Value: 90})
+	r.Observe("cell-3", c.Now(), kpi{Value: 95})
+
+	states := r.States()
+	if states["LOW"] != 1 || states["HIGH"] != 2 {
+		t.Errorf("states = %v, want one LOW and two HIGH", states)
+	}
+}
+
+func TestForgetRemovesAnEntity(t *testing.T) {
+	c := newClock()
+	r := NewRegistry(WithClock[kpi](c.Now))
+	r.Observe("cell-1", c.Now(), kpi{Value: 1})
+
+	if !r.Forget("cell-1") {
+		t.Error("forgetting a known entity should report true")
+	}
+	if r.Forget("cell-1") {
+		t.Error("forgetting an unknown entity should report false")
+	}
+	if r.Len() != 0 {
+		t.Error("the entity should be gone")
+	}
+}
