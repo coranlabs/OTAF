@@ -106,3 +106,5 @@ func Example() {
 	//   - cell-1 used 88 is over 80
 	//   - cell-1 used 93 is over 80
 }
+
+func must[T any](v T, _ bool) T { return v }
