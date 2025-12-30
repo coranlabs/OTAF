@@ -286,3 +286,27 @@ func TestForgetRemovesAnEntity(t *testing.T) {
 		t.Error("the entity should be gone")
 	}
 }
+
+func TestConcurrentObserveIsSafe(t *testing.T) {
+	r := NewRegistry(WithClassifier[kpi](threshold(50)))
+
+	var wg sync.WaitGroup
+	base := time.Now()
+
+	for worker := 0; worker < 8; worker++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			for i := 0; i < 50; i++ {
+				r.Observe("cell-1", base.Add(time.Duration(worker*100+i)*time.Millisecond), kpi{Value: float64(i)})
+				r.Snapshot()
+				r.States()
+			}
+		}(worker)
+	}
+	wg.Wait()
+
+	if r.Len() != 1 {
+		t.Errorf("entities = %d, want 1", r.Len())
+	}
+}
