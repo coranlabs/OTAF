@@ -75,3 +75,41 @@ func TestHistorySpan(t *testing.T) {
 		t.Errorf("span = %v, want 90s", h.Span())
 	}
 }
+
+func TestHistoryValuesExtractsOneField(t *testing.T) {
+	h := NewHistory[kpi](4)
+	base := time.Now()
+	for i := 1; i <= 3; i++ {
+		h.Append(Sample[kpi]{At: base.Add(time.Duration(i) * time.Second), KPI: kpi{Value: float64(i * 10)}})
+	}
+
+	values := h.Values(func(k kpi) float64 { return k.Value })
+	if len(values) != 3 || values[0] != 10 || values[2] != 30 {
+		t.Errorf("values = %v, want [10 20 30]", values)
+	}
+}
+
+func TestHistoryLimitIsAtLeastOne(t *testing.T) {
+	if got := NewHistory[kpi](0).Limit(); got != 1 {
+		t.Errorf("limit = %d, want 1", got)
+	}
+}
+
+func TestJournalKeepsTheMostRecent(t *testing.T) {
+	j := NewJournal[int](3)
+	for i := 1; i <= 5; i++ {
+		j.Append(i)
+	}
+
+	entries := j.Entries()
+	if len(entries) != 3 || entries[0] != 3 || entries[2] != 5 {
+		t.Errorf("entries = %v, want [3 4 5]", entries)
+	}
+	// Total distinguishes a quiet rApp from one whose journal has rolled.
+	if j.Total() != 5 {
+		t.Errorf("total = %d, want 5", j.Total())
+	}
+	if latest, ok := j.Latest(); !ok || latest != 5 {
+		t.Errorf("latest = %v, want 5", latest)
+	}
+}
