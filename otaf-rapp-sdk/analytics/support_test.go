@@ -231,3 +231,14 @@ func TestCooldownRemainingCountsDown(t *testing.T) {
 		t.Errorf("remaining = %v, want 0 once elapsed", got)
 	}
 }
+
+func TestZeroCooldownAllowsEverything(t *testing.T) {
+	guard := NewCooldown(0)
+	at := time.Now()
+
+	for i := 0; i < 3; i++ {
+		if !guard.Take("cell-1", at) {
+			t.Fatal("a zero period should never block")
+		}
+	}
+}
