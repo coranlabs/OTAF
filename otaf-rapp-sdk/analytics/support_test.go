@@ -139,3 +139,59 @@ func TestJournalEntriesAreCopied(t *testing.T) {
 		t.Error("mutating the returned slice must not affect the journal")
 	}
 }
+
+func TestJournalIsConcurrencySafe(t *testing.T) {
+	j := NewJournal[int](32)
+
+	var wg sync.WaitGroup
+	for w := 0; w < 8; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 100; i++ {
+				j.Append(i)
+				j.Entries()
+				j.Len()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if j.Total() != 800 {
+		t.Errorf("total = %d, want 800", j.Total())
+	}
+}
+
+// Without a guard, an rApp reacting to a KPI it influences acts on every
+// report until the KPI catches up.
+func TestCooldownBlocksRepeatActions(t *testing.T) {
+	guard := NewCooldown(time.Minute)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	if !guard.Take("cell-1", at) {
+		t.Fatal("the first action should be allowed")
+	}
+	if guard.Take("cell-1", at.Add(30*time.Second)) {
+		t.Error("a second action within the period should be blocked")
+	}
+	if !guard.Take("cell-2", at) {
+		t.Error("another entity should be unaffected")
+	}
+	if !guard.Take("cell-1", at.Add(61*time.Second)) {
+		t.Error("the guard should lift once the period has passed")
+	}
+}
+
+// Time is the caller's, so logic driven by sample timestamps behaves the same
+// as logic driven by the wall clock.
+func TestCooldownFollowsTheCallersClock(t *testing.T) {
+	guard := NewCooldown(2 * time.Minute)
+	replay := time.Date(2020, 6, 1, 12, 0, 0, 0, time.UTC)
+
+	if !guard.Take("cell-1", replay) {
+		t.Fatal("the first action should be allowed")
+	}
+	if !guard.Take("cell-1", replay.Add(3*time.Minute)) {
+		t.Error("advancing the data's timeline should lift the guard, whatever the wall clock says")
+	}
+}
