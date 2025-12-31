@@ -56,3 +56,22 @@ func TestHistoryDropsOldestWhenFull(t *testing.T) {
 		t.Errorf("window = %v..%v, want 2..4", oldest.KPI.Value, latest.KPI.Value)
 	}
 }
+
+// Samples say nothing about how long they took to arrive, so a classifier
+// needing a minimum period of evidence asks for the span.
+func TestHistorySpan(t *testing.T) {
+	h := NewHistory[kpi](8)
+	base := time.Now()
+
+	if h.Span() != 0 {
+		t.Error("an empty window spans nothing")
+	}
+	h.Append(Sample[kpi]{At: base, KPI: kpi{}})
+	if h.Span() != 0 {
+		t.Error("a single sample spans nothing")
+	}
+	h.Append(Sample[kpi]{At: base.Add(90 * time.Second), KPI: kpi{}})
+	if h.Span() != 90*time.Second {
+		t.Errorf("span = %v, want 90s", h.Span())
+	}
+}
