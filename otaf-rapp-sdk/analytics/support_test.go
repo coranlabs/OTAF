@@ -113,3 +113,29 @@ func TestJournalKeepsTheMostRecent(t *testing.T) {
 		t.Errorf("latest = %v, want 5", latest)
 	}
 }
+
+func TestJournalRecent(t *testing.T) {
+	j := NewJournal[int](10)
+	for i := 1; i <= 5; i++ {
+		j.Append(i)
+	}
+
+	if got := j.Recent(2); len(got) != 2 || got[0] != 4 || got[1] != 5 {
+		t.Errorf("recent = %v, want [4 5]", got)
+	}
+	if got := j.Recent(99); len(got) != 5 {
+		t.Errorf("asking for more than exists should return everything, got %d", len(got))
+	}
+}
+
+func TestJournalEntriesAreCopied(t *testing.T) {
+	j := NewJournal[int](3)
+	j.Append(1)
+
+	entries := j.Entries()
+	entries[0] = 99
+
+	if again := j.Entries(); again[0] != 1 {
+		t.Error("mutating the returned slice must not affect the journal")
+	}
+}
