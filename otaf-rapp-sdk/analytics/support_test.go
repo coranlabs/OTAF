@@ -195,3 +195,39 @@ func TestCooldownFollowsTheCallersClock(t *testing.T) {
 		t.Error("advancing the data's timeline should lift the guard, whatever the wall clock says")
 	}
 }
+
+// Allow and Mark are separate so a failed attempt does not consume the guard.
+func TestAllowDoesNotClaimTheGuard(t *testing.T) {
+	guard := NewCooldown(time.Minute)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	if !guard.Allow("cell-1", at) {
+		t.Fatal("a fresh key should be allowed")
+	}
+	if !guard.Allow("cell-1", at) {
+		t.Error("Allow must not claim the guard, so a failed action can retry")
+	}
+
+	guard.Mark("cell-1", at)
+	if guard.Allow("cell-1", at) {
+		t.Error("the guard should hold once marked")
+	}
+}
+
+func TestCooldownRemainingCountsDown(t *testing.T) {
+	guard := NewCooldown(time.Minute)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	if guard.Remaining("cell-1", at) != 0 {
+		t.Error("an unclaimed key has nothing remaining")
+	}
+
+	guard.Mark("cell-1", at)
+
+	if got := guard.Remaining("cell-1", at.Add(20*time.Second)); got != 40*time.Second {
+		t.Errorf("remaining = %v, want 40s", got)
+	}
+	if got := guard.Remaining("cell-1", at.Add(80*time.Second)); got != 0 {
+		t.Errorf("remaining = %v, want 0 once elapsed", got)
+	}
+}
