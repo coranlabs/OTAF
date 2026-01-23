@@ -242,3 +242,54 @@ func TestZeroCooldownAllowsEverything(t *testing.T) {
 		}
 	}
 }
+
+func TestCooldownClearAndEvict(t *testing.T) {
+	guard := NewCooldown(time.Minute)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	guard.Mark("cell-1", at)
+	guard.Clear("cell-1")
+	if !guard.Allow("cell-1", at) {
+		t.Error("clearing should free the key immediately")
+	}
+
+	guard.Mark("cell-2", at)
+	if dropped := guard.Evict(at.Add(5 * time.Minute)); dropped != 1 {
+		t.Errorf("evicted %d, want 1", dropped)
+	}
+	if guard.Len() != 0 {
+		t.Errorf("tracked keys = %d, want 0", guard.Len())
+	}
+}
+
+func TestBucketsAccumulateIntoSlots(t *testing.T) {
+	b := NewBuckets(time.Hour, 4)
+	base := time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
+
+	b.Incr(base, "acted")
+	b.Incr(base.Add(10*time.Minute), "acted")
+	b.Add(base, "moved", 2.5)
+	b.Incr(base.Add(time.Hour), "acted")
+
+	window := b.Window(base.Add(time.Hour))
+	if len(window) != 4 {
+		t.Fatalf("window has %d slots, want 4", len(window))
+	}
+
+	last := window[len(window)-1]
+	if last.Values["acted"] != 1 {
+		t.Errorf("newest slot acted = %v, want 1", last.Values["acted"])
+	}
+
+	previous := window[len(window)-2]
+	if previous.Values["acted"] != 2 {
+		t.Errorf("previous slot acted = %v, want 2", previous.Values["acted"])
+	}
+	if previous.Values["moved"] != 2.5 {
+		t.Errorf("previous slot moved = %v, want 2.5", previous.Values["moved"])
+	}
+
+	if total := b.Total(base.Add(time.Hour), "acted"); total != 3 {
+		t.Errorf("total = %v, want 3", total)
+	}
+}
