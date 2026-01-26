@@ -293,3 +293,39 @@ func TestBucketsAccumulateIntoSlots(t *testing.T) {
 		t.Errorf("total = %v, want 3", total)
 	}
 }
+
+// A chart needs a point for every interval, including the quiet ones.
+func TestEmptySlotsAreReturnedNotOmitted(t *testing.T) {
+	b := NewBuckets(time.Hour, 3)
+	base := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+
+	b.Incr(base, "acted")
+
+	window := b.Window(base)
+	if len(window) != 3 {
+		t.Fatalf("window has %d slots, want 3", len(window))
+	}
+	for i, slot := range window[:2] {
+		if len(slot.Values) != 0 {
+			t.Errorf("slot %d should be empty, got %v", i, slot.Values)
+		}
+		if slot.Start.IsZero() {
+			t.Errorf("slot %d should still carry its start time", i)
+		}
+	}
+}
+
+// Slots are wall-clock aligned so a restart does not shift the boundaries.
+func TestSlotsAreAlignedToTheClock(t *testing.T) {
+	b := NewBuckets(2*time.Hour, 12)
+	at := time.Date(2026, 1, 1, 9, 47, 13, 0, time.UTC)
+
+	b.Incr(at, "acted")
+	window := b.Window(at)
+	newest := window[len(window)-1]
+
+	want := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !newest.Start.Equal(want) {
+		t.Errorf("slot start = %v, want %v", newest.Start, want)
+	}
+}
