@@ -329,3 +329,33 @@ func TestSlotsAreAlignedToTheClock(t *testing.T) {
 		t.Errorf("slot start = %v, want %v", newest.Start, want)
 	}
 }
+
+// A slot reused after a full rotation must not carry the old period's counts.
+func TestSlotsResetOnRotation(t *testing.T) {
+	b := NewBuckets(time.Hour, 2)
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	b.Incr(base, "acted")
+	later := base.Add(2 * time.Hour)
+	b.Incr(later, "acted")
+
+	window := b.Window(later)
+	newest := window[len(window)-1]
+	if newest.Values["acted"] != 1 {
+		t.Errorf("reused slot = %v, want it reset to 1", newest.Values["acted"])
+	}
+}
+
+func TestBucketWindowIsCopied(t *testing.T) {
+	b := NewBuckets(time.Hour, 2)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	b.Incr(at, "acted")
+
+	window := b.Window(at)
+	window[len(window)-1].Values["acted"] = 99
+
+	again := b.Window(at)
+	if again[len(again)-1].Values["acted"] != 1 {
+		t.Error("mutating a returned window must not affect the buckets")
+	}
+}
