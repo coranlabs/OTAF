@@ -359,3 +359,32 @@ func TestBucketWindowIsCopied(t *testing.T) {
 		t.Error("mutating a returned window must not affect the buckets")
 	}
 }
+
+func TestStatsOverAWindow(t *testing.T) {
+	values := []float64{10, 20, 30, 40}
+
+	if got := Mean(values); got != 25 {
+		t.Errorf("mean = %v, want 25", got)
+	}
+	if got := Min(values); got != 10 {
+		t.Errorf("min = %v, want 10", got)
+	}
+	if got := Max(values); got != 40 {
+		t.Errorf("max = %v, want 40", got)
+	}
+	if got := Last(values); got != 40 {
+		t.Errorf("last = %v, want 40", got)
+	}
+	if got := Slope(values); math.Abs(got-10) > 1e-9 {
+		t.Errorf("slope = %v, want 10 per sample", got)
+	}
+	if got := ChangePct(values); math.Abs(got-300) > 1e-9 {
+		t.Errorf("change = %v%%, want 300", got)
+	}
+	if got := Percentile(values, 0.5); math.Abs(got-25) > 1e-9 {
+		t.Errorf("median = %v, want 25", got)
+	}
+	if got := StdDev([]float64{2, 2, 2}); got != 0 {
+		t.Errorf("stddev of constants = %v, want 0", got)
+	}
+}
