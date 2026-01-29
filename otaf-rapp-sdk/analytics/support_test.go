@@ -388,3 +388,39 @@ func TestStatsOverAWindow(t *testing.T) {
 		t.Errorf("stddev of constants = %v, want 0", got)
 	}
 }
+
+// A short or gappy window must not need guarding at every call site.
+func TestStatsToleratesEmptyAndNaN(t *testing.T) {
+	empty := []float64{}
+	for name, got := range map[string]float64{
+		"mean":   Mean(empty),
+		"min":    Min(empty),
+		"max":    Max(empty),
+		"last":   Last(empty),
+		"slope":  Slope(empty),
+		"change": ChangePct(empty),
+		"pct":    Percentile(empty, 0.9),
+		"stddev": StdDev(empty),
+	} {
+		if got != 0 {
+			t.Errorf("%s over an empty window = %v, want 0", name, got)
+		}
+	}
+
+	gappy := []float64{10, math.NaN(), 30}
+	if got := Mean(gappy); got != 20 {
+		t.Errorf("mean ignoring NaN = %v, want 20", got)
+	}
+	if got := Max(gappy); got != 30 {
+		t.Errorf("max ignoring NaN = %v, want 30", got)
+	}
+	if got := Last(gappy); got != 30 {
+		t.Errorf("last ignoring NaN = %v, want 30", got)
+	}
+}
+
+func TestChangePctFromZeroIsZero(t *testing.T) {
+	if got := ChangePct([]float64{0, 50}); got != 0 {
+		t.Errorf("change from zero = %v, want 0: a proportion of nothing is meaningless", got)
+	}
+}
