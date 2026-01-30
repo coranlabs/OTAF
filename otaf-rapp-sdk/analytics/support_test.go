@@ -424,3 +424,27 @@ func TestChangePctFromZeroIsZero(t *testing.T) {
 		t.Errorf("change from zero = %v, want 0: a proportion of nothing is meaningless", got)
 	}
 }
+
+func TestPercentileEdges(t *testing.T) {
+	values := []float64{5, 1, 3}
+	if got := Percentile(values, 0); got != 1 {
+		t.Errorf("p0 = %v, want the minimum", got)
+	}
+	if got := Percentile(values, 1); got != 5 {
+		t.Errorf("p100 = %v, want the maximum", got)
+	}
+	if values[0] != 5 {
+		t.Error("Percentile must not reorder the caller's slice")
+	}
+}
+
+func TestClamp01(t *testing.T) {
+	for input, want := range map[float64]float64{-1: 0, 0.5: 0.5, 2: 1} {
+		if got := Clamp01(input); got != want {
+			t.Errorf("clamp(%v) = %v, want %v", input, got, want)
+		}
+	}
+	if got := Clamp01(math.NaN()); got != 0 {
+		t.Errorf("clamp(NaN) = %v, want 0", got)
+	}
+}
