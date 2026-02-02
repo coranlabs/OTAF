@@ -22,6 +22,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `ingest/kafkasrc` | Kafka source with SASL/SCRAM authentication |
 | `pm` | Decoding of 3GPP TS 32.435 XML and VES perf3gpp into a common representation |
 | `dlq` | Persistent dead-letter queue with replay |
+| `analytics` | Per-entity history, verdicts, cooldowns, journals and counters. No classifier implementations are provided |
 
 ## Licence
 
