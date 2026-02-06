@@ -78,3 +78,20 @@ func New(cfg Config, logger *logrus.Logger) (*Client, error) {
 		logger: logger,
 	}, nil
 }
+
+func (c *Client) NodeID() string { return c.cfg.NodeID }
+
+// Ping verifies the controller answers. Pass it to health.Func to have the
+// rApp's readiness reflect controller reachability.
+func (c *Client) Ping(ctx context.Context) error {
+	path := c.base + "/rests/operations"
+	resp, err := c.do(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	defer drain(resp)
+	if resp.StatusCode >= 300 {
+		return &Error{Method: http.MethodGet, Path: path, Status: resp.StatusCode, Detail: snippet(resp)}
+	}
+	return nil
+}
