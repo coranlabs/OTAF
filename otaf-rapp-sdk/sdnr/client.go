@@ -36,3 +36,11 @@ const (
 	snippetLen     = 512
 	defaultTimeout = 30 * time.Second
 )
+
+type Config struct {
+	Endpoint string        `yaml:"endpoint" env:"SDNR_ADDR"`
+	Username string        `yaml:"username" env:"SDNR_USER"`
+	Password string        `yaml:"password" env:"SDNR_PASSWORD"`
+	NodeID   string        `yaml:"node_id" env:"NODE_ID"`
+	Timeout  time.Duration `yaml:"timeout" env:"SDNR_TIMEOUT"`
+}
