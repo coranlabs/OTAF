@@ -45,9 +45,36 @@ type Config struct {
 	Timeout  time.Duration `yaml:"timeout" env:"SDNR_TIMEOUT"`
 }
 
+func (c Config) Validate() error {
+	if c.Endpoint == "" {
+		return errs.New(errs.CategoryConfig, "SDNR_NO_ENDPOINT",
+			"sdnr: no endpoint configured")
+	}
+	if _, err := url.Parse(c.Endpoint); err != nil {
+		return errs.Wrap(err, errs.CategoryConfig, "SDNR_BAD_ENDPOINT",
+			"sdnr: endpoint is not a URL").WithField("endpoint", c.Endpoint)
+	}
+	return nil
+}
+
 type Client struct {
 	base   string
 	cfg    Config
 	http   *http.Client
 	logger *logrus.Logger
+}
+
+func New(cfg Config, logger *logrus.Logger) (*Client, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = defaultTimeout
+	}
+	return &Client{
+		base:   strings.TrimRight(cfg.Endpoint, "/"),
+		cfg:    cfg,
+		http:   &http.Client{Timeout: cfg.Timeout},
+		logger: logger,
+	}, nil
 }
