@@ -44,3 +44,10 @@ type Config struct {
 	NodeID   string        `yaml:"node_id" env:"NODE_ID"`
 	Timeout  time.Duration `yaml:"timeout" env:"SDNR_TIMEOUT"`
 }
+
+type Client struct {
+	base   string
+	cfg    Config
+	http   *http.Client
+	logger *logrus.Logger
+}
