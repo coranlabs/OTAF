@@ -95,3 +95,14 @@ func (c *Client) Ping(ctx context.Context) error {
 	}
 	return nil
 }
+
+// MountPath builds a RESTCONF path into the node's mounted O1 datastore.
+// Segments are joined as given, so pass them already YANG-qualified.
+func (c *Client) MountPath(segments ...string) string {
+	p := c.base + "/rests/data/network-topology:network-topology" +
+		"/topology=topology-netconf/node=" + url.PathEscape(c.cfg.NodeID) + "/yang-ext:mount"
+	for _, s := range segments {
+		p += "/" + strings.TrimPrefix(s, "/")
+	}
+	return p
+}
