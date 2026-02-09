@@ -179,3 +179,22 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) (*htt
 	}
 	return resp, nil
 }
+
+func drain(resp *http.Response) {
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+	resp.Body.Close()
+}
+
+func snippet(resp *http.Response) string {
+	buf := make([]byte, snippetLen)
+	n, _ := io.ReadFull(resp.Body, buf)
+	return clip(buf[:n])
+}
+
+func clip(b []byte) string {
+	s := strings.TrimSpace(string(b))
+	if len(s) > snippetLen {
+		return s[:snippetLen] + "..."
+	}
+	return s
+}
