@@ -131,3 +131,51 @@ func (c *Client) Patch(ctx context.Context, path string, body []byte) error {
 func (c *Client) Put(ctx context.Context, path string, body []byte) error {
 	return c.write(ctx, http.MethodPut, path, body)
 }
+
+func (c *Client) Post(ctx context.Context, path string, body []byte) error {
+	return c.write(ctx, http.MethodPost, path, body)
+}
+
+func (c *Client) write(ctx context.Context, method, path string, body []byte) error {
+	resp, err := c.do(ctx, method, path, body)
+	if err != nil {
+		return err
+	}
+	defer drain(resp)
+	if resp.StatusCode >= 300 {
+		return &Error{Method: method, Path: path, Status: resp.StatusCode, Detail: snippet(resp)}
+	}
+	return nil
+}
+
+func (c *Client) do(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, path, reader)
+	if err != nil {
+		return nil, &Error{Method: method, Path: path, Cause: err}
+	}
+	if c.cfg.Username != "" {
+		req.SetBasicAuth(c.cfg.Username, c.cfg.Password)
+	}
+	req.Header.Set("Accept", yangJSON)
+	req.Header.Set("User-Agent", rappsdk.UserAgent)
+	if body != nil {
+		req.Header.Set("Content-Type", yangJSON)
+	}
+
+	if c.logger != nil {
+		c.logger.WithFields(logrus.Fields{"method": method, "path": path}).Debug("controller request")
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		// No status: the request never reached the controller, which is a
+		// different problem from the node refusing it.
+		return nil, &Error{Method: method, Path: path, Cause: err}
+	}
+	return resp, nil
+}
