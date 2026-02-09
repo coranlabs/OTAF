@@ -106,3 +106,28 @@ func (c *Client) MountPath(segments ...string) string {
 	}
 	return p
 }
+
+func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
+	resp, err := c.do(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, &Error{Method: http.MethodGet, Path: path, Cause: err}
+	}
+	if resp.StatusCode >= 300 {
+		return nil, &Error{Method: http.MethodGet, Path: path, Status: resp.StatusCode, Detail: clip(body)}
+	}
+	return body, nil
+}
+
+func (c *Client) Patch(ctx context.Context, path string, body []byte) error {
+	return c.write(ctx, http.MethodPatch, path, body)
+}
+
+func (c *Client) Put(ctx context.Context, path string, body []byte) error {
+	return c.write(ctx, http.MethodPut, path, body)
+}
