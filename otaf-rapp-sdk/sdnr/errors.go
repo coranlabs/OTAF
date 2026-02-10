@@ -38,3 +38,23 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Unwrap() error { return e.Cause }
+
+// Retryable reports whether another attempt could succeed. A node that refused
+// the request will refuse it again; one that could not be reached might not be
+// unreachable for long.
+//
+// Note that this says nothing about whether retrying is *safe*. A write that
+// is not idempotent should not be retried whatever this reports.
+func (e *Error) Retryable() bool {
+	if e.Status == 0 {
+		return true
+	}
+	switch e.Status {
+	case http.StatusRequestTimeout, http.StatusTooManyRequests:
+		return true
+	}
+	return e.Status >= 500
+}
+
+// The three methods below let errs classify this failure without either
+// package importing the other.
