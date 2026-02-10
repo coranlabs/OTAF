@@ -84,3 +84,15 @@ func (e *Error) ErrorCode() string {
 		return "O1_FAILED"
 	}
 }
+
+// IsNotFound reports a path the node does not have.
+func IsNotFound(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Status == http.StatusNotFound
+}
+
+// IsRejected reports a request the node understood and refused.
+func IsRejected(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Status >= 400 && e.Status < 500
+}
