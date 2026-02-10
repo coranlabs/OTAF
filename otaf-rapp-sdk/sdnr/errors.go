@@ -58,3 +58,29 @@ func (e *Error) Retryable() bool {
 
 // The three methods below let errs classify this failure without either
 // package importing the other.
+
+func (e *Error) ErrorCategory() string { return "network" }
+
+func (e *Error) HTTPStatus() int {
+	if e.Status == 0 {
+		return http.StatusBadGateway
+	}
+	return e.Status
+}
+
+func (e *Error) ErrorCode() string {
+	switch {
+	case e.Status == 0:
+		return "O1_UNREACHABLE"
+	case e.Status == http.StatusNotFound:
+		return "O1_NOT_FOUND"
+	case e.Status == http.StatusConflict:
+		return "O1_CONFLICT"
+	case e.Status >= 500:
+		return "O1_UNAVAILABLE"
+	case e.Status >= 400:
+		return "O1_REJECTED"
+	default:
+		return "O1_FAILED"
+	}
+}
