@@ -96,3 +96,9 @@ func IsRejected(err error) bool {
 	var e *Error
 	return errors.As(err, &e) && e.Status >= 400 && e.Status < 500
 }
+
+// IsUnreachable reports a request that never got an answer.
+func IsUnreachable(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Status == 0
+}
