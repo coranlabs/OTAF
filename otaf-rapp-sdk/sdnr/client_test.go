@@ -71,3 +71,38 @@ func TestEndpointIsRequired(t *testing.T) {
 		t.Fatal("expected an error when no endpoint is configured")
 	}
 }
+
+// The path has to address the node's mounted datastore exactly, or the
+// controller answers 404 and the reason is far from obvious.
+func TestMountPathAddressesTheNode(t *testing.T) {
+	c, _ := newTestClient(t, http.StatusOK, "")
+
+	path := c.MountPath(
+		"_3gpp-common-managed-element:ManagedElement=me1",
+		"/_3gpp-nr-nrm-gnbcucpfunction:GNBCUCPFunction=cucp1",
+	)
+
+	for _, want := range []string{
+		"/rests/data/network-topology:network-topology",
+		"/topology=topology-netconf/node=gnb-1/yang-ext:mount",
+		"/_3gpp-common-managed-element:ManagedElement=me1",
+		"/_3gpp-nr-nrm-gnbcucpfunction:GNBCUCPFunction=cucp1",
+	} {
+		if !strings.Contains(path, want) {
+			t.Errorf("mount path is missing %q\n  got %s", want, path)
+		}
+	}
+	if strings.Contains(path, "//_3gpp") {
+		t.Errorf("segments should join with single slashes, got %s", path)
+	}
+}
+
+func TestNodeIDIsEscaped(t *testing.T) {
+	c, err := New(Config{Endpoint: "http://ctrl", NodeID: "node/with space"}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(c.MountPath(), "with space") {
+		t.Errorf("node id should be escaped in the path, got %s", c.MountPath())
+	}
+}
