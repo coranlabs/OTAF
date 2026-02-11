@@ -65,3 +65,9 @@ func newTestClient(t *testing.T, status int, response string) (*Client, *capture
 	}
 	return c, got
 }
+
+func TestEndpointIsRequired(t *testing.T) {
+	if _, err := New(Config{}, quietLogger()); err == nil {
+		t.Fatal("expected an error when no endpoint is configured")
+	}
+}
