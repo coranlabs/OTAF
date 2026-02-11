@@ -120,3 +120,47 @@ func TestPingAcceptsAHealthyController(t *testing.T) {
 		t.Error("requests should carry basic auth when credentials are configured")
 	}
 }
+
+func TestPingReportsAnUnhealthyController(t *testing.T) {
+	c, _ := newTestClient(t, http.StatusInternalServerError, "boom")
+
+	if err := c.Ping(context.Background()); err == nil {
+		t.Fatal("expected an error for a failing controller")
+	}
+}
+
+func TestPatchSendsYangJSON(t *testing.T) {
+	c, got := newTestClient(t, http.StatusOK, "")
+
+	err := c.Patch(context.Background(), c.MountPath("x"), []byte(`{"admin-state":"LOCKED"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.method != http.MethodPatch {
+		t.Errorf("method = %s, want PATCH", got.method)
+	}
+	if !strings.Contains(got.body, "LOCKED") {
+		t.Errorf("body = %q, want the payload", got.body)
+	}
+	if got.accept != yangJSON {
+		t.Errorf("accept = %q, want %q", got.accept, yangJSON)
+	}
+}
+
+// A rejected write has to say what the node objected to, or an operator is
+// left guessing.
+func TestRejectedWriteCarriesTheReason(t *testing.T) {
+	c, _ := newTestClient(t, http.StatusConflict, `{"errors":{"error":[{"error-message":"value out of range"}]}}`)
+
+	err := c.Patch(context.Background(), c.MountPath("x"), []byte(`{}`))
+	if err == nil {
+		t.Fatal("expected the write to be rejected")
+	}
+	if !strings.Contains(err.Error(), "409") {
+		t.Errorf("error = %v, want it to name the status", err)
+	}
+	if !strings.Contains(err.Error(), "out of range") {
+		t.Errorf("error = %v, want it to carry the node's message", err)
+	}
+}
