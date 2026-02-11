@@ -106,3 +106,17 @@ func TestNodeIDIsEscaped(t *testing.T) {
 		t.Errorf("node id should be escaped in the path, got %s", c.MountPath())
 	}
 }
+
+func TestPingAcceptsAHealthyController(t *testing.T) {
+	c, got := newTestClient(t, http.StatusOK, "{}")
+
+	if err := c.Ping(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(got.path, "/rests/operations") {
+		t.Errorf("ping hit %q, want the operations endpoint", got.path)
+	}
+	if !got.auth {
+		t.Error("requests should carry basic auth when credentials are configured")
+	}
+}
