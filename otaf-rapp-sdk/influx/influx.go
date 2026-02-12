@@ -69,3 +69,5 @@ func (w *Writer) Stats() Stats {
 	}
 	return Stats{Queued: len(w.lines), Written: w.written.Load(), Dropped: w.dropped.Load()}
 }
+
+var keyEscaper = strings.NewReplacer(",", `\,`, " ", `\ `, "=", `\=`)
