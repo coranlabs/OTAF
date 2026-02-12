@@ -164,3 +164,23 @@ func TestRejectedWriteCarriesTheReason(t *testing.T) {
 		t.Errorf("error = %v, want it to carry the node's message", err)
 	}
 }
+
+func TestGetReturnsTheBody(t *testing.T) {
+	c, _ := newTestClient(t, http.StatusOK, `{"cells":[]}`)
+
+	body, err := c.Get(context.Background(), c.MountPath("x"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != `{"cells":[]}` {
+		t.Errorf("body = %q, want the response", body)
+	}
+}
+
+func TestGetReportsFailure(t *testing.T) {
+	c, _ := newTestClient(t, http.StatusNotFound, "no such resource")
+
+	if _, err := c.Get(context.Background(), c.MountPath("x")); err == nil {
+		t.Fatal("expected an error for a missing resource")
+	}
+}
