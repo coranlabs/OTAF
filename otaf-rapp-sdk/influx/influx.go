@@ -39,3 +39,33 @@ const (
 	batchSize     = 500
 	flushEvery    = 5 * time.Second
 )
+
+type Config struct {
+	URL    string `yaml:"url" env:"INFLUX_URL"`
+	Org    string `yaml:"org" env:"INFLUX_ORG"`
+	Bucket string `yaml:"bucket" env:"INFLUX_BUCKET"`
+	Token  string `yaml:"token" env:"INFLUX_TOKEN"`
+}
+
+type Writer struct {
+	cfg    Config
+	logger *logrus.Logger
+	http   *http.Client
+	lines  chan string
+
+	dropped atomic.Uint64
+	written atomic.Uint64
+}
+
+type Stats struct {
+	Queued  int    `json:"queued"`
+	Written uint64 `json:"written"`
+	Dropped uint64 `json:"dropped"`
+}
+
+func (w *Writer) Stats() Stats {
+	if w == nil {
+		return Stats{}
+	}
+	return Stats{Queued: len(w.lines), Written: w.written.Load(), Dropped: w.dropped.Load()}
+}
