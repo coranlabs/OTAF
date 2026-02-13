@@ -47,6 +47,23 @@ type Config struct {
 	Token  string `yaml:"token" env:"INFLUX_TOKEN"`
 }
 
+func (c Config) Enabled() bool { return strings.TrimSpace(c.URL) != "" }
+
+func (c Config) Validate() error {
+	if !c.Enabled() {
+		return nil
+	}
+	if c.Bucket == "" {
+		return errs.New(errs.CategoryConfig, "INFLUX_NO_BUCKET",
+			"influx: bucket is required when a URL is set")
+	}
+	if c.Org == "" {
+		return errs.New(errs.CategoryConfig, "INFLUX_NO_ORG",
+			"influx: org is required when a URL is set")
+	}
+	return nil
+}
+
 type Writer struct {
 	cfg    Config
 	logger *logrus.Logger
