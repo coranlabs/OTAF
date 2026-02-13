@@ -74,6 +74,25 @@ type Writer struct {
 	written atomic.Uint64
 }
 
+// New returns nil when no URL is configured, so persistence stays optional and
+// the caller can hold a nil *Writer safely.
+func New(cfg Config, logger *logrus.Logger) (*Writer, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if !cfg.Enabled() {
+		return nil, nil
+	}
+	return &Writer{
+		cfg:    cfg,
+		logger: logger,
+		http:   &http.Client{Timeout: 15 * time.Second},
+		lines:  make(chan string, defaultBuffer),
+	}, nil
+}
+
+func (w *Writer) Name() string { return "influx" }
+
 type Stats struct {
 	Queued  int    `json:"queued"`
 	Written uint64 `json:"written"`
