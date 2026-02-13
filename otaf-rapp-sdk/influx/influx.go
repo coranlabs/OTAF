@@ -93,6 +93,13 @@ func New(cfg Config, logger *logrus.Logger) (*Writer, error) {
 
 func (w *Writer) Name() string { return "influx" }
 
+func (w *Writer) Bucket() string {
+	if w == nil {
+		return ""
+	}
+	return w.cfg.Bucket
+}
+
 type Stats struct {
 	Queued  int    `json:"queued"`
 	Written uint64 `json:"written"`
