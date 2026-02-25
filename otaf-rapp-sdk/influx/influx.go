@@ -219,4 +219,82 @@ func (w *Writer) Flush(ctx context.Context) {
 	}
 }
 
+// Query runs Flux and returns the annotated CSV the store replies with.
+func (w *Writer) Query(ctx context.Context, flux string) ([]byte, error) {
+	if w == nil {
+		return nil, errs.New(errs.CategoryInternal, "INFLUX_NOT_CONFIGURED",
+			"influx: no store configured")
+	}
+	url := fmt.Sprintf("%s/api/v2/query?org=%s", strings.TrimRight(w.cfg.URL, "/"), w.cfg.Org)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(flux))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Token "+w.cfg.Token)
+	req.Header.Set("Content-Type", "application/vnd.flux")
+	req.Header.Set("Accept", "text/csv")
+	req.Header.Set("User-Agent", rappsdk.UserAgent)
+
+	resp, err := w.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		return nil, errs.Newf(errs.CategoryPlatform, "INFLUX_QUERY_REJECTED",
+			"influx: query returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body))).
+			WithStatus(resp.StatusCode)
+	}
+	return body, nil
+}
+
+func encode(measurement string, tags map[string]string, fields map[string]any, ts time.Time) string {
+	var b strings.Builder
+	b.WriteString(escapeKey(measurement))
+
+	for _, k := range sortedKeys(tags) {
+		v := tags[k]
+		if v == "" {
+			continue
+		}
+		b.WriteByte(',')
+		b.WriteString(escapeKey(k))
+		b.WriteByte('=')
+		b.WriteString(escapeKey(v))
+	}
+
+	first := true
+	for _, k := range sortedFieldKeys(fields) {
+		encoded, ok := encodeField(fields[k])
+		if !ok {
+			continue
+		}
+		if first {
+			b.WriteByte(' ')
+			first = false
+		} else {
+			b.WriteByte(',')
+		}
+		b.WriteString(escapeKey(k))
+		b.WriteByte('=')
+		b.WriteString(encoded)
+	}
+	if first {
+		return ""
+	}
+
+	if ts.IsZero() {
+		ts = time.Now()
+	}
+	b.WriteByte(' ')
+	b.WriteString(strconv.FormatInt(ts.UnixNano(), 10))
+	return b.String()
+}
+
 var keyEscaper = strings.NewReplacer(",", `\,`, " ", `\ `, "=", `\=`)
