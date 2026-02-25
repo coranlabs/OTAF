@@ -201,4 +201,22 @@ func (w *Writer) flush(ctx context.Context, lines []string) []string {
 	return lines
 }
 
+// Flush writes everything queued right now, for callers that cannot wait for
+// the batch timer.
+func (w *Writer) Flush(ctx context.Context) {
+	if w == nil {
+		return
+	}
+	var buf []string
+	for {
+		select {
+		case line := <-w.lines:
+			buf = append(buf, line)
+		default:
+			w.flush(ctx, buf)
+			return
+		}
+	}
+}
+
 var keyEscaper = strings.NewReplacer(",", `\,`, " ", `\ `, "=", `\=`)
