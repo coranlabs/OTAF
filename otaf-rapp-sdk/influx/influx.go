@@ -130,4 +130,75 @@ func (w *Writer) Point(measurement string, tags map[string]string, fields map[st
 	}
 }
 
+// Start batches queued points until ctx ends, then flushes what is left.
+func (w *Writer) Start(ctx context.Context) error {
+	if w == nil {
+		return nil
+	}
+	ticker := time.NewTicker(flushEvery)
+	defer ticker.Stop()
+
+	w.logger.WithFields(logrus.Fields{
+		"url":    w.cfg.URL,
+		"org":    w.cfg.Org,
+		"bucket": w.cfg.Bucket,
+	}).Info("time-series persistence enabled")
+
+	buf := make([]string, 0, batchSize)
+	for {
+		select {
+		case <-ctx.Done():
+			w.flush(context.Background(), w.take(buf))
+			return nil
+		case line := <-w.lines:
+			buf = append(buf, line)
+			if len(buf) >= batchSize {
+				buf = w.take(buf)
+			}
+		case <-ticker.C:
+			buf = w.take(buf)
+		}
+	}
+}
+
+func (w *Writer) take(buf []string) []string {
+	if len(buf) == 0 {
+		return buf
+	}
+	w.flush(context.Background(), buf)
+	return buf[:0]
+}
+
+func (w *Writer) flush(ctx context.Context, lines []string) []string {
+	if len(lines) == 0 {
+		return lines
+	}
+	body := strings.Join(lines, "\n")
+	url := fmt.Sprintf("%s/api/v2/write?org=%s&bucket=%s&precision=ns",
+		strings.TrimRight(w.cfg.URL, "/"), w.cfg.Org, w.cfg.Bucket)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(body))
+	if err != nil {
+		return lines
+	}
+	req.Header.Set("Authorization", "Token "+w.cfg.Token)
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	req.Header.Set("User-Agent", rappsdk.UserAgent)
+
+	resp, err := w.http.Do(req)
+	if err != nil {
+		w.logger.WithError(err).Warn("time-series write failed")
+		return lines
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode >= 300 {
+		w.logger.WithField("status", resp.StatusCode).Warn("time-series write rejected")
+		return lines
+	}
+	w.written.Add(uint64(len(lines)))
+	return lines
+}
+
 var keyEscaper = strings.NewReplacer(",", `\,`, " ", `\ `, "=", `\=`)
