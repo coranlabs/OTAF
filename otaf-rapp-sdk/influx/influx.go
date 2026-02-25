@@ -113,4 +113,21 @@ func (w *Writer) Stats() Stats {
 	return Stats{Queued: len(w.lines), Written: w.written.Load(), Dropped: w.dropped.Load()}
 }
 
+// Point queues one measurement. A zero timestamp means now.
+func (w *Writer) Point(measurement string, tags map[string]string, fields map[string]any, ts time.Time) {
+	if w == nil || len(fields) == 0 {
+		return
+	}
+	line := encode(measurement, tags, fields, ts)
+	if line == "" {
+		return
+	}
+	select {
+	case w.lines <- line:
+	default:
+		// Persistence must never stall the decision path it observes.
+		w.dropped.Add(1)
+	}
+}
+
 var keyEscaper = strings.NewReplacer(",", `\,`, " ", `\ `, "=", `\=`)
