@@ -297,4 +297,36 @@ func encode(measurement string, tags map[string]string, fields map[string]any, t
 	return b.String()
 }
 
+func encodeField(v any) (string, bool) {
+	switch t := v.(type) {
+	case float64:
+		return strconv.FormatFloat(t, 'g', -1, 64), true
+	case float32:
+		return strconv.FormatFloat(float64(t), 'g', -1, 32), true
+	case int:
+		return strconv.Itoa(t) + "i", true
+	case int64:
+		return strconv.FormatInt(t, 10) + "i", true
+	case uint64:
+		return strconv.FormatUint(t, 10) + "u", true
+	case bool:
+		return strconv.FormatBool(t), true
+	case string:
+		return strconv.Quote(t), true
+	default:
+		return "", false
+	}
+}
+
 var keyEscaper = strings.NewReplacer(",", `\,`, " ", `\ `, "=", `\=`)
+
+func escapeKey(s string) string { return keyEscaper.Replace(s) }
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
