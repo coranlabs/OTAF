@@ -186,3 +186,40 @@ func TestPointsAreDroppedRatherThanBlocking(t *testing.T) {
 		t.Error("overflowing points should be counted as dropped")
 	}
 }
+
+func TestQueryReportsServerErrors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("unauthorized"))
+	}))
+	defer srv.Close()
+
+	writer, err := New(Config{URL: srv.URL, Org: "o", Bucket: "b"}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := writer.Query(context.Background(), `from(bucket:"b")`); err == nil {
+		t.Fatal("expected an error for a rejected query")
+	}
+}
+
+func TestQueryReturnsBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ct := r.Header.Get("Content-Type"); ct != "application/vnd.flux" {
+			t.Errorf("content type = %q, want application/vnd.flux", ct)
+		}
+		_, _ = w.Write([]byte("result,table,_time,_value\n"))
+	}))
+	defer srv.Close()
+
+	writer, _ := New(Config{URL: srv.URL, Org: "o", Bucket: "b"}, quietLogger())
+
+	body, err := writer.Query(context.Background(), `from(bucket:"b")`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(body), "result,table") {
+		t.Errorf("body = %q, want the annotated CSV", body)
+	}
+}
