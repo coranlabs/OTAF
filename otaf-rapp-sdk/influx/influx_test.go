@@ -62,3 +62,63 @@ func TestBucketAndOrgAreRequiredWithAURL(t *testing.T) {
 		t.Error("expected an error when the org is missing")
 	}
 }
+
+func TestLineProtocolEncoding(t *testing.T) {
+	at := time.Unix(0, 1700000000000000000)
+
+	cases := map[string]struct {
+		measurement string
+		tags        map[string]string
+		fields      map[string]any
+		want        string
+	}{
+		"floats and ints": {
+			"cell_kpis",
+			map[string]string{"cell": "c1"},
+			map[string]any{"load": 42.5, "ues": 7},
+			`cell_kpis,cell=c1 load=42.5,ues=7i 1700000000000000000`,
+		},
+		"tags are sorted": {
+			"m",
+			map[string]string{"z": "1", "a": "2"},
+			map[string]any{"v": 1.0},
+			`m,a=2,z=1 v=1 1700000000000000000`,
+		},
+		"separators are escaped": {
+			"m",
+			map[string]string{"cell": "pci=1,plmn=00101"},
+			map[string]any{"v": 1.0},
+			`m,cell=pci\=1\,plmn\=00101 v=1 1700000000000000000`,
+		},
+		"strings are quoted": {
+			"m",
+			nil,
+			map[string]any{"state": "CONGESTED"},
+			`m state="CONGESTED" 1700000000000000000`,
+		},
+		"booleans": {
+			"m", nil, map[string]any{"up": true},
+			`m up=true 1700000000000000000`,
+		},
+		"empty tags are dropped": {
+			"m",
+			map[string]string{"cell": "c1", "nci": ""},
+			map[string]any{"v": 1.0},
+			`m,cell=c1 v=1 1700000000000000000`,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := encode(tc.measurement, tc.tags, tc.fields, at); got != tc.want {
+				t.Errorf("\n got %s\nwant %s", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPointWithNoUsableFieldsIsSkipped(t *testing.T) {
+	if got := encode("m", nil, map[string]any{"bad": struct{}{}}, time.Now()); got != "" {
+		t.Errorf("got %q, want nothing written for an unencodable field", got)
+	}
+}
