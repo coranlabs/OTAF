@@ -122,3 +122,67 @@ func TestPointWithNoUsableFieldsIsSkipped(t *testing.T) {
 		t.Errorf("got %q, want nothing written for an unencodable field", got)
 	}
 }
+
+func TestFlushSendsQueuedPoints(t *testing.T) {
+	var (
+		mu   sync.Mutex
+		body string
+		path string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		body, path = string(raw), r.URL.RequestURI()
+		mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	writer, err := New(Config{URL: srv.URL, Org: "coran", Bucket: "rapp", Token: "t"}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writer.Point("cell_kpis", map[string]string{"cell": "c1"}, map[string]any{"load": 10.0}, time.Now())
+	writer.Point("cell_kpis", map[string]string{"cell": "c2"}, map[string]any{"load": 20.0}, time.Now())
+	writer.Flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if got := strings.Count(body, "\n") + 1; got != 2 {
+		t.Errorf("wrote %d lines, want 2 batched together", got)
+	}
+	if !strings.Contains(path, "bucket=rapp") || !strings.Contains(path, "org=coran") {
+		t.Errorf("write went to %q, want it to name the org and bucket", path)
+	}
+	if writer.Stats().Written != 2 {
+		t.Errorf("written = %d, want 2", writer.Stats().Written)
+	}
+}
+
+// Persistence must never stall the decision path that feeds it.
+func TestPointsAreDroppedRatherThanBlocking(t *testing.T) {
+	writer, err := New(Config{URL: "http://127.0.0.1:1", Org: "o", Bucket: "b"}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < defaultBuffer*2; i++ {
+			writer.Point("m", nil, map[string]any{"v": float64(i)}, time.Now())
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("writing points blocked when the buffer filled")
+	}
+
+	if writer.Stats().Dropped == 0 {
+		t.Error("overflowing points should be counted as dropped")
+	}
+}
