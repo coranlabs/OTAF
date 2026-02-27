@@ -24,6 +24,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `dlq` | Persistent dead-letter queue with replay |
 | `analytics` | Per-entity history, verdicts, cooldowns, journals and counters. No classifier implementations are provided |
 | `sdnr` | RESTCONF access to the managed network through the SMO controller |
+| `influx` | Buffered time-series writes and Flux queries |
 
 ## Licence
 
