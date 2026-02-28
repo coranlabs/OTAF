@@ -45,3 +45,15 @@ const (
 	keepAliveDivisor = 3
 	minKeepAlive     = 30 * time.Second
 )
+
+type Config struct {
+	Endpoint string `yaml:"endpoint" env:"A1_PMS_ADDR"`
+
+	// ServiceID identifies this rApp's policies. Reusing it after a restart is
+	// what lets an rApp reclaim the policies it created before.
+	ServiceID string `yaml:"service_id" env:"A1_SERVICE_ID"`
+
+	KeepAlive   time.Duration `yaml:"keep_alive" env:"A1_KEEP_ALIVE"`
+	CallbackURL string        `yaml:"callback_url" env:"A1_CALLBACK_URL"`
+	Timeout     time.Duration `yaml:"timeout" env:"A1_TIMEOUT"`
+}
