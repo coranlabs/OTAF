@@ -57,3 +57,55 @@ type Config struct {
 	CallbackURL string        `yaml:"callback_url" env:"A1_CALLBACK_URL"`
 	Timeout     time.Duration `yaml:"timeout" env:"A1_TIMEOUT"`
 }
+
+type Ric struct {
+	ID                string   `json:"ric_id"`
+	ManagedElementIDs []string `json:"managed_element_ids"`
+	State             string   `json:"state"`
+	PolicyTypeIDs     []string `json:"policytype_ids"`
+}
+
+type PolicyType struct {
+	ID string `json:"-"`
+	// Schema is the JSON schema a policy's data must satisfy. The platform
+	// validates against it and rejects anything that does not fit.
+	Schema json.RawMessage `json:"policy_schema"`
+}
+
+type Policy struct {
+	ID           string          `json:"policy_id"`
+	RicID        string          `json:"ric_id"`
+	ServiceID    string          `json:"service_id"`
+	PolicyTypeID string          `json:"policytype_id"`
+	Data         json.RawMessage `json:"policy_data"`
+
+	// Transient policies are dropped if the RIC restarts, rather than being
+	// restored. Use it for decisions that are only valid right now.
+	Transient bool `json:"transient"`
+
+	StatusNotificationURI string `json:"status_notification_uri,omitempty"`
+}
+
+func (c *Client) PolicyType(ctx context.Context, id string) (*PolicyType, error) {
+	body, err := c.do(ctx, http.MethodGet, "/policy-types/"+url.PathEscape(id), nil, "get policy type")
+	if err != nil {
+		return nil, err
+	}
+	pt := &PolicyType{ID: id}
+	if err := json.Unmarshal(body, pt); err != nil {
+		return nil, fmt.Errorf("a1 get policy type: %w", err)
+	}
+	return pt, nil
+}
+
+func (c *Client) Policy(ctx context.Context, id string) (*Policy, error) {
+	body, err := c.do(ctx, http.MethodGet, "/policies/"+url.PathEscape(id), nil, "get policy")
+	if err != nil {
+		return nil, err
+	}
+	var p Policy
+	if err := json.Unmarshal(body, &p); err != nil {
+		return nil, fmt.Errorf("a1 get policy: %w", err)
+	}
+	return &p, nil
+}
