@@ -153,6 +153,8 @@ func (e *Error) Retryable() bool {
 // The three methods below let errs classify this failure without either
 // package importing the other.
 
+func (e *Error) ErrorCategory() string { return "platform" }
+
 type Client struct {
 	base   string
 	cfg    Config
