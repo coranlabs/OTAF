@@ -139,6 +139,20 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("a1 %s: status %d: %s", e.Op, e.Status, e.Detail)
 }
 
+// Retryable reports whether trying the same call again could succeed. A
+// refusal on the request's own merits never can; the service being briefly
+// unavailable usually does.
+func (e *Error) Retryable() bool {
+	switch e.Status {
+	case http.StatusRequestTimeout, http.StatusTooManyRequests:
+		return true
+	}
+	return e.Status >= 500
+}
+
+// The three methods below let errs classify this failure without either
+// package importing the other.
+
 type Client struct {
 	base   string
 	cfg    Config
