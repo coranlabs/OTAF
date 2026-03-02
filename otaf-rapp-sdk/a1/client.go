@@ -60,12 +60,33 @@ type Config struct {
 
 func (c Config) Enabled() bool { return strings.TrimSpace(c.Endpoint) != "" }
 
+func (c Config) Validate() error {
+	if !c.Enabled() {
+		return nil
+	}
+	if _, err := url.Parse(c.Endpoint); err != nil {
+		return errs.Wrap(err, errs.CategoryConfig, "A1_BAD_ENDPOINT",
+			"a1: endpoint is not a URL").WithField("endpoint", c.Endpoint)
+	}
+	if strings.TrimSpace(c.ServiceID) == "" {
+		return errs.New(errs.CategoryConfig, "A1_NO_SERVICE_ID",
+			"a1: service_id is required; it is how the platform attributes policies to this rApp")
+	}
+	if c.KeepAlive < 0 {
+		return errs.New(errs.CategoryConfig, "A1_BAD_KEEP_ALIVE",
+			"a1: keep_alive must not be negative")
+	}
+	return nil
+}
+
 type Ric struct {
 	ID                string   `json:"ric_id"`
 	ManagedElementIDs []string `json:"managed_element_ids"`
 	State             string   `json:"state"`
 	PolicyTypeIDs     []string `json:"policytype_ids"`
 }
+
+func (r Ric) Available() bool { return r.State == "AVAILABLE" }
 
 type PolicyType struct {
 	ID string `json:"-"`
