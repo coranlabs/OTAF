@@ -58,6 +58,8 @@ type Config struct {
 	Timeout     time.Duration `yaml:"timeout" env:"A1_TIMEOUT"`
 }
 
+func (c Config) Enabled() bool { return strings.TrimSpace(c.Endpoint) != "" }
+
 type Ric struct {
 	ID                string   `json:"ric_id"`
 	ManagedElementIDs []string `json:"managed_element_ids"`
@@ -86,6 +88,16 @@ type Policy struct {
 	StatusNotificationURI string `json:"status_notification_uri,omitempty"`
 }
 
+type Client struct {
+	base   string
+	cfg    Config
+	http   *http.Client
+	logger *logrus.Logger
+
+	retry            retry.Policy
+	deregisterOnStop bool
+}
+
 func (c *Client) PolicyType(ctx context.Context, id string) (*PolicyType, error) {
 	body, err := c.do(ctx, http.MethodGet, "/policy-types/"+url.PathEscape(id), nil, "get policy type")
 	if err != nil {
@@ -108,4 +120,12 @@ func (c *Client) Policy(ctx context.Context, id string) (*Policy, error) {
 		return nil, fmt.Errorf("a1 get policy: %w", err)
 	}
 	return &p, nil
+}
+
+type Filter struct {
+	ServiceID    string
+	RicID        string
+	PolicyTypeID string
+	// AllServices lifts the default of listing only this rApp's policies.
+	AllServices bool
 }
