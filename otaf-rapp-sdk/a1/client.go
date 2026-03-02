@@ -88,6 +88,15 @@ type Ric struct {
 
 func (r Ric) Available() bool { return r.State == "AVAILABLE" }
 
+func (r Ric) Supports(policyTypeID string) bool {
+	for _, id := range r.PolicyTypeIDs {
+		if id == policyTypeID {
+			return true
+		}
+	}
+	return false
+}
+
 type PolicyType struct {
 	ID string `json:"-"`
 	// Schema is the JSON schema a policy's data must satisfy. The platform
