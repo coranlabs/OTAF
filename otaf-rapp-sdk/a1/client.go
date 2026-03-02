@@ -118,6 +118,27 @@ type Policy struct {
 	StatusNotificationURI string `json:"status_notification_uri,omitempty"`
 }
 
+// Status is whatever the RIC reports about a policy. The outer envelope is
+// fixed; what is inside varies by RIC and policy type, so it stays raw.
+type Status struct {
+	LastModified time.Time       `json:"last_modified"`
+	Status       json.RawMessage `json:"status"`
+}
+
+// Error carries what the policy management service said about a rejection.
+type Error struct {
+	Op     string
+	Status int
+	Detail string
+}
+
+func (e *Error) Error() string {
+	if e.Detail == "" {
+		return fmt.Sprintf("a1 %s: status %d", e.Op, e.Status)
+	}
+	return fmt.Sprintf("a1 %s: status %d: %s", e.Op, e.Status, e.Detail)
+}
+
 type Client struct {
 	base   string
 	cfg    Config
