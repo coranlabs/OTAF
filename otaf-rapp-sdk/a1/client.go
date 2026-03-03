@@ -196,6 +196,36 @@ type Client struct {
 	deregisterOnStop bool
 }
 
+// New returns nil when no endpoint is configured, so an rApp that does not
+// steer the RIC can hold a nil *Client safely.
+func New(cfg Config, logger *logrus.Logger, opts ...Option) (*Client, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if !cfg.Enabled() {
+		return nil, nil
+	}
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = defaultTimeout
+	}
+	if cfg.KeepAlive == 0 {
+		cfg.KeepAlive = 5 * time.Minute
+	}
+	c := &Client{
+		base:   strings.TrimRight(cfg.Endpoint, "/") + basePath,
+		cfg:    cfg,
+		http:   &http.Client{Timeout: cfg.Timeout},
+		logger: logger,
+		retry:  retry.Default(),
+	}
+	c.apply(opts...)
+	return c, nil
+}
+
+// WithRetry replaces how transient failures are re-attempted. Pass
+// retry.None() to have every call fail on its first refusal.
+func WithRetry(p retry.Policy) Option { return func(c *Client) { c.retry = p } }
+
 func (c *Client) PolicyType(ctx context.Context, id string) (*PolicyType, error) {
 	body, err := c.do(ctx, http.MethodGet, "/policy-types/"+url.PathEscape(id), nil, "get policy type")
 	if err != nil {
