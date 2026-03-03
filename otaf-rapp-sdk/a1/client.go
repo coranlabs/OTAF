@@ -155,6 +155,8 @@ func (e *Error) Retryable() bool {
 
 func (e *Error) ErrorCategory() string { return "platform" }
 
+func (e *Error) HTTPStatus() int { return e.Status }
+
 type Client struct {
 	base   string
 	cfg    Config
