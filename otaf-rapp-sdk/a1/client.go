@@ -179,6 +179,13 @@ func IsNotFound(err error) bool {
 	return errors.As(err, &e) && e.Status == http.StatusNotFound
 }
 
+// IsRejected reports a policy the platform refused, usually because its data
+// does not match the policy type's schema.
+func IsRejected(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Status == http.StatusBadRequest
+}
+
 type Client struct {
 	base   string
 	cfg    Config
