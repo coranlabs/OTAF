@@ -226,6 +226,13 @@ func New(cfg Config, logger *logrus.Logger, opts ...Option) (*Client, error) {
 // retry.None() to have every call fail on its first refusal.
 func WithRetry(p retry.Policy) Option { return func(c *Client) { c.retry = p } }
 
+func (c *Client) ServiceID() string { return c.cfg.ServiceID }
+
+func (c *Client) Ping(ctx context.Context) error {
+	_, err := c.do(ctx, http.MethodGet, "/status", nil, "status")
+	return err
+}
+
 func (c *Client) PolicyType(ctx context.Context, id string) (*PolicyType, error) {
 	body, err := c.do(ctx, http.MethodGet, "/policy-types/"+url.PathEscape(id), nil, "get policy type")
 	if err != nil {
