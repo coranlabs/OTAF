@@ -157,6 +157,28 @@ func (e *Error) ErrorCategory() string { return "platform" }
 
 func (e *Error) HTTPStatus() int { return e.Status }
 
+// ErrorCode is stable across rewording of the message, so it survives in a
+// ticket or an alert rule.
+func (e *Error) ErrorCode() string {
+	switch {
+	case e.Status == http.StatusNotFound:
+		return "A1_NOT_FOUND"
+	case e.Status == http.StatusConflict:
+		return "A1_CONFLICT"
+	case e.Status >= 500:
+		return "A1_UNAVAILABLE"
+	case e.Status >= 400:
+		return "A1_REJECTED"
+	default:
+		return "A1_FAILED"
+	}
+}
+
+func IsNotFound(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Status == http.StatusNotFound
+}
+
 type Client struct {
 	base   string
 	cfg    Config
