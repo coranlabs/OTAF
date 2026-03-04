@@ -365,10 +365,57 @@ func (c *Client) Policy(ctx context.Context, id string) (*Policy, error) {
 	return &p, nil
 }
 
+func (c *Client) PolicyStatus(ctx context.Context, id string) (*Status, error) {
+	body, err := c.do(ctx, http.MethodGet, "/policies/"+url.PathEscape(id)+"/status", nil, "get policy status")
+	if err != nil {
+		return nil, err
+	}
+	var s Status
+	if err := json.Unmarshal(body, &s); err != nil {
+		return nil, fmt.Errorf("a1 get policy status: %w", err)
+	}
+	return &s, nil
+}
+
+// Policies lists policy ids. With no filter it returns only this rApp's own.
+func (c *Client) Policies(ctx context.Context, filter Filter) ([]string, error) {
+	if filter.ServiceID == "" && !filter.AllServices {
+		filter.ServiceID = c.cfg.ServiceID
+	}
+	body, err := c.do(ctx, http.MethodGet, "/policies"+filter.query(), nil, "list policies")
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		IDs []string `json:"policy_ids"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("a1 list policies: %w", err)
+	}
+	return out.IDs, nil
+}
+
 type Filter struct {
 	ServiceID    string
 	RicID        string
 	PolicyTypeID string
 	// AllServices lifts the default of listing only this rApp's policies.
 	AllServices bool
+}
+
+func (f Filter) query() string {
+	values := url.Values{}
+	if f.ServiceID != "" {
+		values.Set("service_id", f.ServiceID)
+	}
+	if f.RicID != "" {
+		values.Set("ric_id", f.RicID)
+	}
+	if f.PolicyTypeID != "" {
+		values.Set("policytype_id", f.PolicyTypeID)
+	}
+	if len(values) == 0 {
+		return ""
+	}
+	return "?" + values.Encode()
 }
