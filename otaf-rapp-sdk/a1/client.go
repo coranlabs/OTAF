@@ -456,3 +456,36 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, op st
 		return c.attempt(ctx, method, path, body, op)
 	})
 }
+
+func (c *Client) attempt(ctx context.Context, method, path string, body []byte, op string) ([]byte, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, reader)
+	if err != nil {
+		return nil, retry.Permanent(fmt.Errorf("a1 %s: %w", op, err))
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", rappsdk.UserAgent)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("a1 %s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	payload, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("a1 %s: %w", op, err)
+	}
+
+	if resp.StatusCode >= 300 {
+		return nil, &Error{Op: op, Status: resp.StatusCode, Detail: detailOf(payload)}
+	}
+	return payload, nil
+}
