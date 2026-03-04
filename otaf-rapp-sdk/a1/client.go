@@ -319,6 +319,40 @@ func (c *Client) PolicyType(ctx context.Context, id string) (*PolicyType, error)
 	return pt, nil
 }
 
+// PutPolicy creates or replaces a policy instance. The service id is filled in
+// from the client's configuration when the caller leaves it blank.
+func (c *Client) PutPolicy(ctx context.Context, p Policy) error {
+	// Missing identifiers are the caller's mistake, not the platform's, and no
+	// retry or outage explains them.
+	if p.ID == "" {
+		return errs.New(errs.CategoryInternal, "A1_MISSING_POLICY_ID", "a1: policy id is required")
+	}
+	if p.RicID == "" {
+		return errs.New(errs.CategoryInternal, "A1_MISSING_RIC_ID", "a1: ric id is required")
+	}
+	if p.ServiceID == "" {
+		p.ServiceID = c.cfg.ServiceID
+	}
+	if len(p.Data) == 0 {
+		p.Data = json.RawMessage("{}")
+	}
+
+	body, err := json.Marshal(p)
+	if err != nil {
+		return fmt.Errorf("a1 put policy: %w", err)
+	}
+	if _, err := c.do(ctx, http.MethodPut, "/policies", body, "put policy"); err != nil {
+		return err
+	}
+
+	c.logger.WithFields(logrus.Fields{
+		"policy": p.ID,
+		"ric":    p.RicID,
+		"type":   p.PolicyTypeID,
+	}).Info("A1 policy applied")
+	return nil
+}
+
 func (c *Client) Policy(ctx context.Context, id string) (*Policy, error) {
 	body, err := c.do(ctx, http.MethodGet, "/policies/"+url.PathEscape(id), nil, "get policy")
 	if err != nil {
