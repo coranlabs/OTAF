@@ -489,3 +489,22 @@ func (c *Client) attempt(ctx context.Context, method, path string, body []byte, 
 	}
 	return payload, nil
 }
+
+// The service reports problems as RFC 7807 documents; a schema rejection can
+// arrive with an empty detail, so fall back to the raw body.
+func detailOf(payload []byte) string {
+	var problem struct {
+		Detail string `json:"detail"`
+		Title  string `json:"title"`
+	}
+	if err := json.Unmarshal(payload, &problem); err == nil {
+		if problem.Detail != "" {
+			return problem.Detail
+		}
+		if problem.Title != "" {
+			return problem.Title
+		}
+		return "policy rejected, most likely because its data does not match the policy type schema"
+	}
+	return strings.TrimSpace(string(payload))
+}
