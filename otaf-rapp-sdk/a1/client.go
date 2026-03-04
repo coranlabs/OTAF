@@ -233,6 +233,26 @@ func (c *Client) Ping(ctx context.Context) error {
 	return err
 }
 
+// Rics lists the Near-RT RICs known to the platform, optionally only those
+// supporting a policy type.
+func (c *Client) Rics(ctx context.Context, policyTypeID string) ([]Ric, error) {
+	path := "/rics"
+	if policyTypeID != "" {
+		path += "?policytype_id=" + url.QueryEscape(policyTypeID)
+	}
+	body, err := c.do(ctx, http.MethodGet, path, nil, "list rics")
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Rics []Ric `json:"rics"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("a1 list rics: %w", err)
+	}
+	return out.Rics, nil
+}
+
 func (c *Client) PolicyType(ctx context.Context, id string) (*PolicyType, error) {
 	body, err := c.do(ctx, http.MethodGet, "/policy-types/"+url.PathEscape(id), nil, "get policy type")
 	if err != nil {
