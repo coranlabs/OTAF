@@ -253,6 +253,60 @@ func (c *Client) Rics(ctx context.Context, policyTypeID string) ([]Ric, error) {
 	return out.Rics, nil
 }
 
+// RicFor picks an available RIC that supports the policy type, preferring one
+// that also manages the given element when an id is supplied.
+func (c *Client) RicFor(ctx context.Context, policyTypeID, managedElementID string) (*Ric, error) {
+	rics, err := c.Rics(ctx, policyTypeID)
+	if err != nil {
+		return nil, err
+	}
+
+	var fallback *Ric
+	for i := range rics {
+		ric := rics[i]
+		if !ric.Available() {
+			continue
+		}
+		if managedElementID == "" {
+			return &ric, nil
+		}
+		for _, me := range ric.ManagedElementIDs {
+			if me == managedElementID {
+				return &ric, nil
+			}
+		}
+		if fallback == nil {
+			fallback = &ric
+		}
+	}
+	if fallback != nil {
+		return fallback, nil
+	}
+	// Not a misconfiguration: a RIC that is down or has not registered the
+	// type yet may well be there on the next attempt.
+	return nil, errs.Newf(errs.CategoryPlatform, "A1_NO_SUITABLE_RIC",
+		"a1: no available Near-RT RIC supports policy type %s", policyTypeID).
+		WithField("policy_type", policyTypeID).Transient()
+}
+
+func (c *Client) PolicyTypes(ctx context.Context, ricID string) ([]string, error) {
+	path := "/policy-types"
+	if ricID != "" {
+		path += "?ric_id=" + url.QueryEscape(ricID)
+	}
+	body, err := c.do(ctx, http.MethodGet, path, nil, "list policy types")
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		IDs []string `json:"policytype_ids"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("a1 list policy types: %w", err)
+	}
+	return out.IDs, nil
+}
+
 func (c *Client) PolicyType(ctx context.Context, id string) (*PolicyType, error) {
 	body, err := c.do(ctx, http.MethodGet, "/policy-types/"+url.PathEscape(id), nil, "get policy type")
 	if err != nil {
