@@ -419,3 +419,40 @@ func (f Filter) query() string {
 	}
 	return "?" + values.Encode()
 }
+
+// DeletePolicy withdraws a policy. Deleting one that is already gone is not an
+// error, so cleanup paths stay simple.
+func (c *Client) DeletePolicy(ctx context.Context, id string) error {
+	_, err := c.do(ctx, http.MethodDelete, "/policies/"+url.PathEscape(id), nil, "delete policy")
+	if err != nil && !IsNotFound(err) {
+		return err
+	}
+	return nil
+}
+
+// DeleteAllPolicies withdraws everything this rApp created, which is what an
+// rApp should do when it stops steering.
+func (c *Client) DeleteAllPolicies(ctx context.Context) error {
+	ids, err := c.Policies(ctx, Filter{})
+	if err != nil {
+		return err
+	}
+	var failed []string
+	for _, id := range ids {
+		if err := c.DeletePolicy(ctx, id); err != nil {
+			failed = append(failed, id)
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("a1: could not withdraw policies %s", strings.Join(failed, ", "))
+	}
+	return nil
+}
+
+// Every verb this client uses is idempotent, so retrying a call that failed
+// for a transient reason is always safe.
+func (c *Client) do(ctx context.Context, method, path string, body []byte, op string) ([]byte, error) {
+	return retry.DoValue(ctx, c.retry, func(ctx context.Context, _ int) ([]byte, error) {
+		return c.attempt(ctx, method, path, body, op)
+	})
+}
