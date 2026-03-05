@@ -38,3 +38,14 @@ func quietLogger() *logrus.Logger {
 type discard struct{}
 
 func (discard) Write(p []byte) (int, error) { return len(p), nil }
+
+// The responses below mirror what A1 policy management actually returns.
+type fakePMS struct {
+	mu       sync.Mutex
+	policies map[string]json.RawMessage
+	services map[string]bool
+	requests []string
+
+	rejectPolicy bool
+	dropService  bool
+}
