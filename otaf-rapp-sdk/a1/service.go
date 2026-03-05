@@ -115,3 +115,62 @@ func (c *Client) apply(opts ...Option) {
 }
 
 func (c *Client) Name() string { return "a1:" + c.cfg.ServiceID }
+
+// Start registers the rApp and keeps the registration alive until ctx ends.
+// Run it as an app component.
+func (c *Client) Start(ctx context.Context) error {
+	if c == nil {
+		return nil
+	}
+
+	if err := c.Register(ctx); err != nil {
+		// A policy management service that is not up yet must not stop the
+		// rApp; the heartbeat below re-registers once it answers.
+		c.logger.WithError(err).Warn("could not register with A1 policy management, will retry")
+	}
+
+	every := c.cfg.KeepAlive / keepAliveDivisor
+	if every < minKeepAlive {
+		every = minKeepAlive
+	}
+	if every > c.cfg.KeepAlive && c.cfg.KeepAlive > 0 {
+		every = c.cfg.KeepAlive / 2
+	}
+
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			if c.deregisterOnStop {
+				stop, cancel := context.WithTimeout(context.Background(), c.cfg.Timeout)
+				defer cancel()
+				if err := c.Deregister(stop); err != nil {
+					c.logger.WithError(err).Warn("could not deregister from A1 policy management")
+				}
+			}
+			return nil
+		case <-ticker.C:
+			c.heartbeat(ctx)
+		}
+	}
+}
+
+func (c *Client) heartbeat(ctx context.Context) {
+	err := c.KeepAlive(ctx)
+	if err == nil {
+		return
+	}
+
+	// The platform forgets a service it has reaped, and forgets everything if
+	// it restarts. Either way the answer is to register again.
+	if IsNotFound(err) {
+		c.logger.Warn("A1 registration was lost, registering again")
+		if regErr := c.Register(ctx); regErr != nil {
+			c.logger.WithError(regErr).Warn("could not re-register with A1 policy management")
+		}
+		return
+	}
+	c.logger.WithError(err).Warn("A1 keep-alive failed")
+}
