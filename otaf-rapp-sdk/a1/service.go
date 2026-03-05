@@ -69,4 +69,17 @@ func (c *Client) KeepAlive(ctx context.Context) error {
 	return err
 }
 
+// Deregister removes the registration. The platform withdraws this rApp's
+// policies along with it, so this is a deliberate stand-down, not a shutdown
+// step.
+func (c *Client) Deregister(ctx context.Context) error {
+	_, err := c.do(ctx, http.MethodDelete,
+		"/services/"+url.PathEscape(c.cfg.ServiceID), nil, "deregister service")
+	if err != nil && !IsNotFound(err) {
+		return err
+	}
+	c.logger.WithField("service", c.cfg.ServiceID).Info("deregistered from A1 policy management")
+	return nil
+}
+
 type Option func(*Client)
