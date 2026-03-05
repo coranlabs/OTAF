@@ -82,4 +82,23 @@ func (c *Client) Deregister(ctx context.Context) error {
 	return nil
 }
 
+// Registered reports whether the platform currently knows this rApp.
+func (c *Client) Registered(ctx context.Context) (bool, error) {
+	body, err := c.do(ctx, http.MethodGet,
+		"/services?service_id="+url.QueryEscape(c.cfg.ServiceID), nil, "list services")
+	if err != nil {
+		if IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	var out struct {
+		Services []registered `json:"service_list"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return false, fmt.Errorf("a1 list services: %w", err)
+	}
+	return len(out.Services) > 0, nil
+}
+
 type Option func(*Client)
