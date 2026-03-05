@@ -49,3 +49,21 @@ type fakePMS struct {
 	rejectPolicy bool
 	dropService  bool
 }
+
+func newFakePMS() *fakePMS {
+	return &fakePMS{policies: map[string]json.RawMessage{}, services: map[string]bool{}}
+}
+
+func (f *fakePMS) record(r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.requests = append(f.requests, r.Method+" "+r.URL.Path)
+}
+
+func (f *fakePMS) calls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.requests))
+	copy(out, f.requests)
+	return out
+}
