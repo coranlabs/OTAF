@@ -29,4 +29,12 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/retry"
 )
 
+func quietLogger() *logrus.Logger {
+	l := logrus.New()
+	l.SetOutput(discard{})
+	return l
+}
+
 type discard struct{}
+
+func (discard) Write(p []byte) (int, error) { return len(p), nil }
