@@ -101,4 +101,17 @@ func (c *Client) Registered(ctx context.Context) (bool, error) {
 	return len(out.Services) > 0, nil
 }
 
+// DeregisterOnStop has the rApp stand down cleanly when it shuts down, which
+// withdraws every policy it created. Off by default: a rolling restart would
+// otherwise revert the network for as long as the rApp takes to come back.
+func DeregisterOnStop(on bool) Option { return func(c *Client) { c.deregisterOnStop = on } }
+
 type Option func(*Client)
+
+func (c *Client) apply(opts ...Option) {
+	for _, o := range opts {
+		o(c)
+	}
+}
+
+func (c *Client) Name() string { return "a1:" + c.cfg.ServiceID }
