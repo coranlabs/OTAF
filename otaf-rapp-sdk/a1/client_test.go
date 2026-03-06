@@ -203,3 +203,22 @@ func TestDisabledWhenNoEndpoint(t *testing.T) {
 		t.Fatal("an unconfigured endpoint should yield a nil client")
 	}
 }
+
+func TestServiceIDIsRequired(t *testing.T) {
+	if _, err := New(Config{Endpoint: "http://pms"}, quietLogger()); err == nil {
+		t.Fatal("expected an error when no service id is configured")
+	}
+}
+
+func TestRicForPrefersTheManagedElement(t *testing.T) {
+	srv := newFakePMS().server(t)
+	c := newTestClient(t, srv.URL)
+
+	ric, err := c.RicFor(context.Background(), "20100", "me2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ric.ID != "ric-b" {
+		t.Errorf("selected %s, want ric-b which manages me2", ric.ID)
+	}
+}
