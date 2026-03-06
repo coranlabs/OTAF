@@ -67,3 +67,116 @@ func (f *fakePMS) calls() []string {
 	copy(out, f.requests)
 	return out
 }
+
+func (f *fakePMS) server(t *testing.T) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/a1-policy/v2/status", func(w http.ResponseWriter, r *http.Request) {
+		f.record(r)
+		_, _ = w.Write([]byte(`{"status":"success"}`))
+	})
+
+	mux.HandleFunc("/a1-policy/v2/rics", func(w http.ResponseWriter, r *http.Request) {
+		f.record(r)
+		if r.URL.Query().Get("policytype_id") == "unknown" {
+			_, _ = w.Write([]byte(`{"rics":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"rics":[
+			{"ric_id":"ric-down","managed_element_ids":["me1"],"state":"UNAVAILABLE","policytype_ids":["20100"]},
+			{"ric_id":"ric-a","managed_element_ids":["me9"],"state":"AVAILABLE","policytype_ids":["20100"]},
+			{"ric_id":"ric-b","managed_element_ids":["me1","me2"],"state":"AVAILABLE","policytype_ids":["20100"]}
+		]}`))
+	})
+
+	mux.HandleFunc("/a1-policy/v2/policy-types/20100", func(w http.ResponseWriter, r *http.Request) {
+		f.record(r)
+		_, _ = w.Write([]byte(`{"policy_schema":{"type":"object"}}`))
+	})
+
+	mux.HandleFunc("/a1-policy/v2/policies", func(w http.ResponseWriter, r *http.Request) {
+		f.record(r)
+		switch r.Method {
+		case http.MethodPut:
+			if f.rejectPolicy {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"type":"about:blank","status":400,"detail":""}`))
+				return
+			}
+			var p Policy
+			_ = json.NewDecoder(r.Body).Decode(&p)
+			f.mu.Lock()
+			f.policies[p.ID] = p.Data
+			f.mu.Unlock()
+			w.WriteHeader(http.StatusCreated)
+		case http.MethodGet:
+			f.mu.Lock()
+			ids := make([]string, 0, len(f.policies))
+			for id := range f.policies {
+				ids = append(ids, id)
+			}
+			f.mu.Unlock()
+			body, _ := json.Marshal(map[string][]string{"policy_ids": ids})
+			_, _ = w.Write(body)
+		}
+	})
+
+	mux.HandleFunc("/a1-policy/v2/policies/", func(w http.ResponseWriter, r *http.Request) {
+		f.record(r)
+		id := r.URL.Path[len("/a1-policy/v2/policies/"):]
+
+		f.mu.Lock()
+		_, known := f.policies[id]
+		f.mu.Unlock()
+
+		if !known {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"type":"about:blank","status":404,"detail":"Could not find policy: ` + id + `"}`))
+			return
+		}
+		if r.Method == http.MethodDelete {
+			f.mu.Lock()
+			delete(f.policies, id)
+			f.mu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+		}
+	})
+
+	mux.HandleFunc("/a1-policy/v2/services", func(w http.ResponseWriter, r *http.Request) {
+		f.record(r)
+		switch r.Method {
+		case http.MethodPut:
+			var reg Registration
+			_ = json.NewDecoder(r.Body).Decode(&reg)
+			f.mu.Lock()
+			f.services[reg.ServiceID] = true
+			f.mu.Unlock()
+			w.WriteHeader(http.StatusCreated)
+		case http.MethodGet:
+			id := r.URL.Query().Get("service_id")
+			f.mu.Lock()
+			known := f.services[id]
+			f.mu.Unlock()
+			if !known {
+				_, _ = w.Write([]byte(`{"service_list":[]}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"service_list":[{"service_id":"` + id + `","keep_alive_interval_seconds":300}]}`))
+		}
+	})
+
+	mux.HandleFunc("/a1-policy/v2/services/", func(w http.ResponseWriter, r *http.Request) {
+		f.record(r)
+		if f.dropService {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"type":"about:blank","status":404,"detail":"service not found"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
