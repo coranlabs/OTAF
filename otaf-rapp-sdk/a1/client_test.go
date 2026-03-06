@@ -180,3 +180,26 @@ func (f *fakePMS) server(t *testing.T) *httptest.Server {
 	t.Cleanup(srv.Close)
 	return srv
 }
+
+func newTestClient(t *testing.T, endpoint string, opts ...Option) *Client {
+	t.Helper()
+	c, err := New(Config{
+		Endpoint:  endpoint,
+		ServiceID: "test-rapp",
+		KeepAlive: 90 * time.Second,
+	}, quietLogger(), opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestDisabledWhenNoEndpoint(t *testing.T) {
+	c, err := New(Config{}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != nil {
+		t.Fatal("an unconfigured endpoint should yield a nil client")
+	}
+}
