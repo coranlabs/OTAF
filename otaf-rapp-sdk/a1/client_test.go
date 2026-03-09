@@ -281,3 +281,26 @@ func TestPutPolicyRequiresIdentifiers(t *testing.T) {
 		t.Error("a policy without a RIC should be rejected before it is sent")
 	}
 }
+
+// A schema rejection arrives with an empty detail, so the client has to supply
+// something the operator can act on.
+func TestRejectedPolicyIsClassified(t *testing.T) {
+	fake := newFakePMS()
+	fake.rejectPolicy = true
+	srv := fake.server(t)
+	c := newTestClient(t, srv.URL)
+
+	err := c.PutPolicy(context.Background(), Policy{ID: "p1", RicID: "ric-b", PolicyTypeID: "20100"})
+	if err == nil {
+		t.Fatal("expected the policy to be rejected")
+	}
+	if !IsRejected(err) {
+		t.Errorf("error should classify as rejected, got %v", err)
+	}
+	if IsNotFound(err) {
+		t.Error("a rejection must not classify as not-found")
+	}
+	if len(err.Error()) < 30 {
+		t.Errorf("error should explain the likely cause, got %q", err.Error())
+	}
+}
