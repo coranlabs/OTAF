@@ -304,3 +304,46 @@ func TestRejectedPolicyIsClassified(t *testing.T) {
 		t.Errorf("error should explain the likely cause, got %q", err.Error())
 	}
 }
+
+func TestMissingPolicyIsNotFound(t *testing.T) {
+	srv := newFakePMS().server(t)
+	c := newTestClient(t, srv.URL)
+
+	_, err := c.Policy(context.Background(), "absent")
+	if !IsNotFound(err) {
+		t.Errorf("expected a not-found classification, got %v", err)
+	}
+}
+
+// Cleanup paths stay simple when withdrawing something already gone succeeds.
+func TestDeletingAnAbsentPolicySucceeds(t *testing.T) {
+	srv := newFakePMS().server(t)
+	c := newTestClient(t, srv.URL)
+
+	if err := c.DeletePolicy(context.Background(), "absent"); err != nil {
+		t.Errorf("deleting an absent policy should be a no-op, got %v", err)
+	}
+}
+
+func TestDeleteAllPoliciesWithdrawsOurOwn(t *testing.T) {
+	srv := newFakePMS().server(t)
+	c := newTestClient(t, srv.URL)
+	ctx := context.Background()
+
+	for _, id := range []string{"p1", "p2"} {
+		if err := c.PutPolicy(ctx, Policy{ID: id, RicID: "ric-b", PolicyTypeID: "20100"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := c.DeleteAllPolicies(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	ids, err := c.Policies(ctx, Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 0 {
+		t.Errorf("policies remaining = %v, want none", ids)
+	}
+}
