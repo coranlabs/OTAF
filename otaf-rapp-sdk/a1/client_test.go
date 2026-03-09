@@ -244,3 +244,27 @@ func TestRicForFailsWhenNothingSupportsTheType(t *testing.T) {
 		t.Fatal("expected an error when no RIC supports the policy type")
 	}
 }
+
+func TestPutPolicyFillsInTheServiceID(t *testing.T) {
+	fake := newFakePMS()
+	srv := fake.server(t)
+	c := newTestClient(t, srv.URL)
+
+	err := c.PutPolicy(context.Background(), Policy{
+		ID:           "p1",
+		RicID:        "ric-b",
+		PolicyTypeID: "20100",
+		Data:         json.RawMessage(`{"plmn":"00101"}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ids, err := c.Policies(context.Background(), Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != "p1" {
+		t.Errorf("policies = %v, want [p1]", ids)
+	}
+}
