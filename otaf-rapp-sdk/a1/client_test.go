@@ -268,3 +268,16 @@ func TestPutPolicyFillsInTheServiceID(t *testing.T) {
 		t.Errorf("policies = %v, want [p1]", ids)
 	}
 }
+
+func TestPutPolicyRequiresIdentifiers(t *testing.T) {
+	srv := newFakePMS().server(t)
+	c := newTestClient(t, srv.URL)
+	ctx := context.Background()
+
+	if err := c.PutPolicy(ctx, Policy{RicID: "ric-b"}); err == nil {
+		t.Error("a policy without an id should be rejected before it is sent")
+	}
+	if err := c.PutPolicy(ctx, Policy{ID: "p1"}); err == nil {
+		t.Error("a policy without a RIC should be rejected before it is sent")
+	}
+}
