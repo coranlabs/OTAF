@@ -347,3 +347,63 @@ func TestDeleteAllPoliciesWithdrawsOurOwn(t *testing.T) {
 		t.Errorf("policies remaining = %v, want none", ids)
 	}
 }
+
+func TestRegisterAndKeepAlive(t *testing.T) {
+	fake := newFakePMS()
+	srv := fake.server(t)
+	c := newTestClient(t, srv.URL)
+	ctx := context.Background()
+
+	if err := c.Register(ctx); err != nil {
+		t.Fatal(err)
+	}
+	ok, err := c.Registered(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Error("the service should be registered")
+	}
+	if err := c.KeepAlive(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// If the platform forgets the service, the heartbeat has to register again or
+// the rApp silently loses the ability to place policies.
+func TestHeartbeatReregistersAfterTheServiceIsForgotten(t *testing.T) {
+	fake := newFakePMS()
+	fake.dropService = true
+	srv := fake.server(t)
+	c := newTestClient(t, srv.URL)
+
+	c.heartbeat(context.Background())
+
+	var registrations int
+	for _, call := range fake.calls() {
+		if call == "PUT /a1-policy/v2/services" {
+			registrations++
+		}
+	}
+	if registrations == 0 {
+		t.Error("a lost registration should trigger a fresh register call")
+	}
+}
+
+func TestStopDoesNotDeregisterByDefault(t *testing.T) {
+	fake := newFakePMS()
+	srv := fake.server(t)
+	c := newTestClient(t, srv.URL)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := c.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, call := range fake.calls() {
+		if call == "DELETE /a1-policy/v2/services/test-rapp" {
+			t.Fatal("stopping must not withdraw the rApp's policies; a restart would revert the network")
+		}
+	}
+}
