@@ -407,3 +407,78 @@ func TestStopDoesNotDeregisterByDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestDeregisterOnStopIsOptIn(t *testing.T) {
+	fake := newFakePMS()
+	srv := fake.server(t)
+	c := newTestClient(t, srv.URL, DeregisterOnStop(true))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := c.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var deregistered bool
+	for _, call := range fake.calls() {
+		if call == "DELETE /a1-policy/v2/services/test-rapp" {
+			deregistered = true
+		}
+	}
+	if !deregistered {
+		t.Error("opting in should stand the rApp down on shutdown")
+	}
+}
+
+// The policy management service rolls and restarts; a call that failed because
+// it was briefly away should not surface as a failed decision.
+func TestTransientFailuresAreRetried(t *testing.T) {
+	var attempts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(`{"rics":[{"ric_id":"ric-a","state":"AVAILABLE","policytype_ids":["20100"]}]}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL, WithRetry(retry.Policy{
+		Attempts: 4, Initial: time.Millisecond, Max: 5 * time.Millisecond, Multiplier: 2,
+	}))
+
+	rics, err := c.Rics(context.Background(), "")
+	if err != nil {
+		t.Fatalf("the call should have survived two outages: %v", err)
+	}
+	if len(rics) != 1 {
+		t.Errorf("rics = %d, want 1", len(rics))
+	}
+	if attempts != 3 {
+		t.Errorf("attempts = %d, want 3", attempts)
+	}
+}
+
+// A rejection is about the request, so repeating it only wastes time.
+func TestRejectionsAreNotRetried(t *testing.T) {
+	var attempts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"status":400,"detail":""}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL, WithRetry(retry.Policy{
+		Attempts: 4, Initial: time.Millisecond, Multiplier: 2,
+	}))
+
+	err := c.PutPolicy(context.Background(), Policy{ID: "p1", RicID: "ric-a", PolicyTypeID: "20100"})
+	if !IsRejected(err) {
+		t.Errorf("expected a rejection, got %v", err)
+	}
+	if attempts != 1 {
+		t.Errorf("attempts = %d, want 1", attempts)
+	}
+}
