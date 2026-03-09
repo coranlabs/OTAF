@@ -222,3 +222,25 @@ func TestRicForPrefersTheManagedElement(t *testing.T) {
 		t.Errorf("selected %s, want ric-b which manages me2", ric.ID)
 	}
 }
+
+func TestRicForSkipsUnavailableRics(t *testing.T) {
+	srv := newFakePMS().server(t)
+	c := newTestClient(t, srv.URL)
+
+	ric, err := c.RicFor(context.Background(), "20100", "me1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ric.ID == "ric-down" {
+		t.Error("an unavailable RIC must never be selected, even when it manages the element")
+	}
+}
+
+func TestRicForFailsWhenNothingSupportsTheType(t *testing.T) {
+	srv := newFakePMS().server(t)
+	c := newTestClient(t, srv.URL)
+
+	if _, err := c.RicFor(context.Background(), "unknown", ""); err == nil {
+		t.Fatal("expected an error when no RIC supports the policy type")
+	}
+}
