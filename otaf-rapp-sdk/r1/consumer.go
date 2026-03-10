@@ -62,6 +62,13 @@ type JobStatus struct {
 	Producers []string `json:"producers"`
 }
 
+type consumerJob struct {
+	InfoTypeID string `json:"info_type_id"`
+	JobOwner   string `json:"job_owner"`
+	ResultURI  string `json:"job_result_uri"`
+	Definition any    `json:"job_definition"`
+}
+
 func (c *Consumer) JobStatus(ctx context.Context, jobID string) (*JobStatus, error) {
 	body, err := c.do(ctx, http.MethodGet,
 		consumerBase+"/info-jobs/"+url.PathEscape(jobID)+"/status", nil, "get info job status")
@@ -73,4 +80,10 @@ func (c *Consumer) JobStatus(ctx context.Context, jobID string) (*JobStatus, err
 		return nil, fmt.Errorf("r1 get info job status: %w", err)
 	}
 	return &s, nil
+}
+
+type ConsumerError struct {
+	Op     string
+	Status int
+	Detail string
 }
