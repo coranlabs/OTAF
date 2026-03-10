@@ -57,6 +57,44 @@ type ConsumerConfig struct {
 	Timeout time.Duration `yaml:"timeout" env:"ICS_TIMEOUT"`
 }
 
+func (c ConsumerConfig) Enabled() bool { return strings.TrimSpace(c.Endpoint) != "" }
+
+func (c ConsumerConfig) Validate() error {
+	if !c.Enabled() {
+		return nil
+	}
+	if strings.TrimSpace(c.Owner) == "" {
+		return errs.New(errs.CategoryConfig, "R1_NO_OWNER",
+			"r1: consumer owner is required; it is how the platform attributes jobs to this rApp")
+	}
+	if strings.TrimSpace(c.SelfURL) == "" {
+		return errs.New(errs.CategoryConfig, "R1_NO_SELF_URL",
+			"r1: consumer self_url is required; a producer has to be told where to deliver")
+	}
+	if _, err := url.Parse(c.SelfURL); err != nil {
+		return errs.Wrap(err, errs.CategoryConfig, "R1_BAD_SELF_URL",
+			"r1: consumer self_url is not a URL").WithField("self_url", c.SelfURL)
+	}
+	return nil
+}
+
+// Subscription is a standing request for data of one information type.
+type Subscription struct {
+	// JobID must be stable across restarts so the job is replaced rather than
+	// duplicated.
+	JobID string
+
+	InfoTypeID string
+
+	// Definition is type-specific and validated by the platform against the
+	// information type's schema.
+	Definition any
+
+	// DeliverTo is the path on this rApp where data should arrive, matching
+	// the path an ingest source listens on.
+	DeliverTo string
+}
+
 type JobStatus struct {
 	State     string   `json:"info_job_status"`
 	Producers []string `json:"producers"`
