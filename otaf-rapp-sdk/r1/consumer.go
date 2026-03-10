@@ -95,6 +95,36 @@ type Subscription struct {
 	DeliverTo string
 }
 
+// A subscription missing a field is the caller's mistake, not the platform's.
+func (s Subscription) validate() error {
+	switch {
+	case s.JobID == "":
+		return errs.New(errs.CategoryInternal, "R1_INVALID_SUBSCRIPTION",
+			"r1: subscription job id is required")
+	case s.InfoTypeID == "":
+		return errs.New(errs.CategoryInternal, "R1_INVALID_SUBSCRIPTION",
+			"r1: subscription info type id is required")
+	case s.DeliverTo == "":
+		return errs.New(errs.CategoryInternal, "R1_INVALID_SUBSCRIPTION",
+			"r1: subscription needs a delivery path")
+	}
+	return nil
+}
+
+// InfoType is the consumer's view of an information type: the schema a job
+// definition must satisfy, plus whether anyone is currently producing it.
+// Note the field name differs from the producer's view of the same type.
+type InfoType struct {
+	ID        string          `json:"-"`
+	Schema    json.RawMessage `json:"job_data_schema"`
+	Status    string          `json:"type_status"`
+	Producers int             `json:"no_of_producers"`
+}
+
+// Available reports whether subscribing to this type would actually yield
+// data, rather than a job that sits idle waiting for a producer.
+func (t InfoType) Available() bool { return t.Status == statusEnabled && t.Producers > 0 }
+
 type JobStatus struct {
 	State     string   `json:"info_job_status"`
 	Producers []string `json:"producers"`
@@ -105,6 +135,19 @@ type consumerJob struct {
 	JobOwner   string `json:"job_owner"`
 	ResultURI  string `json:"job_result_uri"`
 	Definition any    `json:"job_definition"`
+}
+
+func (c *Consumer) InfoType(ctx context.Context, id string) (*InfoType, error) {
+	body, err := c.do(ctx, http.MethodGet,
+		consumerBase+"/info-types/"+url.PathEscape(id), nil, "get info type")
+	if err != nil {
+		return nil, err
+	}
+	t := &InfoType{ID: id}
+	if err := json.Unmarshal(body, t); err != nil {
+		return nil, fmt.Errorf("r1 get info type: %w", err)
+	}
+	return t, nil
 }
 
 func (c *Consumer) JobStatus(ctx context.Context, jobID string) (*JobStatus, error) {
