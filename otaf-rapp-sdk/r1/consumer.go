@@ -130,6 +130,9 @@ type JobStatus struct {
 	Producers []string `json:"producers"`
 }
 
+// Delivering reports whether at least one producer is serving this job.
+func (s JobStatus) Delivering() bool { return s.State == statusEnabled && len(s.Producers) > 0 }
+
 type consumerJob struct {
 	InfoTypeID string `json:"info_type_id"`
 	JobOwner   string `json:"job_owner"`
