@@ -140,6 +140,18 @@ type consumerJob struct {
 	Definition any    `json:"job_definition"`
 }
 
+// Consumer subscribes this rApp to information types other producers publish.
+type Consumer struct {
+	cfg    ConsumerConfig
+	http   *http.Client
+	logger *logrus.Logger
+
+	mu      sync.Mutex
+	wanted  []Subscription
+	placed  map[string]bool
+	lastErr map[string]string
+}
+
 func (c *Consumer) InfoType(ctx context.Context, id string) (*InfoType, error) {
 	body, err := c.do(ctx, http.MethodGet,
 		consumerBase+"/info-types/"+url.PathEscape(id), nil, "get info type")
