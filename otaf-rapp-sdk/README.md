@@ -25,6 +25,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `analytics` | Per-entity history, verdicts, cooldowns, journals and counters. No classifier implementations are provided |
 | `sdnr` | RESTCONF access to the managed network through the SMO controller |
 | `influx` | Buffered time-series writes and Flux queries |
+| `a1` | Near-RT RIC integration: service registration with keep-alive, RIC and policy type discovery, policy lifecycle |
 
 ## Licence
 
