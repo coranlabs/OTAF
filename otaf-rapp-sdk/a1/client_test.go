@@ -482,3 +482,50 @@ func TestRejectionsAreNotRetried(t *testing.T) {
 		t.Errorf("attempts = %d, want 1", attempts)
 	}
 }
+
+// Retrying a PUT means the body has to be readable again on each attempt.
+func TestRetriedWritesResendTheBody(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, r.ContentLength)
+		_, _ = io.ReadFull(r.Body, buf)
+		bodies = append(bodies, string(buf))
+		if len(bodies) < 2 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL, WithRetry(retry.Policy{
+		Attempts: 3, Initial: time.Millisecond, Multiplier: 2,
+	}))
+
+	err := c.PutPolicy(context.Background(), Policy{
+		ID: "p1", RicID: "ric-a", PolicyTypeID: "20100",
+		Data: json.RawMessage(`{"plmn":"00101"}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 2 {
+		t.Fatalf("attempts = %d, want 2", len(bodies))
+	}
+	if bodies[0] != bodies[1] || bodies[1] == "" {
+		t.Errorf("the retried attempt sent a different body:\n  %q\n  %q", bodies[0], bodies[1])
+	}
+}
+
+func TestFilterQuery(t *testing.T) {
+	cases := map[string]Filter{
+		"":                              {AllServices: true},
+		"?service_id=svc":               {ServiceID: "svc"},
+		"?policytype_id=20100&ric_id=r": {RicID: "r", PolicyTypeID: "20100"},
+	}
+	for want, f := range cases {
+		if got := f.query(); got != want {
+			t.Errorf("query = %q, want %q", got, want)
+		}
+	}
+}
