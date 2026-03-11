@@ -220,6 +220,19 @@ func (c *Consumer) InfoType(ctx context.Context, id string) (*InfoType, error) {
 	return t, nil
 }
 
+func (c *Consumer) Jobs(ctx context.Context) ([]string, error) {
+	body, err := c.do(ctx, http.MethodGet,
+		consumerBase+"/info-jobs?owner="+url.QueryEscape(c.cfg.Owner), nil, "list info jobs")
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	if err := json.Unmarshal(body, &ids); err != nil {
+		return nil, fmt.Errorf("r1 list info jobs: %w", err)
+	}
+	return ids, nil
+}
+
 func (c *Consumer) JobStatus(ctx context.Context, jobID string) (*JobStatus, error) {
 	body, err := c.do(ctx, http.MethodGet,
 		consumerBase+"/info-jobs/"+url.PathEscape(jobID)+"/status", nil, "get info job status")
