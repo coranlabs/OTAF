@@ -246,6 +246,44 @@ func (c *Consumer) JobStatus(ctx context.Context, jobID string) (*JobStatus, err
 	return &s, nil
 }
 
+// Subscribe places one job immediately. Start does this for every declared
+// subscription, so call it directly only for jobs decided at runtime.
+func (c *Consumer) Subscribe(ctx context.Context, s Subscription) error {
+	if err := s.validate(); err != nil {
+		return err
+	}
+
+	definition := s.Definition
+	if definition == nil {
+		definition = map[string]any{}
+	}
+	body, err := json.Marshal(consumerJob{
+		InfoTypeID: s.InfoTypeID,
+		JobOwner:   c.cfg.Owner,
+		ResultURI:  c.resultURI(s.DeliverTo),
+		Definition: definition,
+	})
+	if err != nil {
+		return fmt.Errorf("r1 subscribe: %w", err)
+	}
+
+	_, err = c.do(ctx, http.MethodPut,
+		consumerBase+"/info-jobs/"+url.PathEscape(s.JobID), body, "create info job")
+	return err
+}
+
+func (c *Consumer) Unsubscribe(ctx context.Context, jobID string) error {
+	_, err := c.do(ctx, http.MethodDelete,
+		consumerBase+"/info-jobs/"+url.PathEscape(jobID), nil, "delete info job")
+	if err != nil && !IsNotFound(err) {
+		return err
+	}
+	c.mu.Lock()
+	delete(c.placed, jobID)
+	c.mu.Unlock()
+	return nil
+}
+
 type ConsumerError struct {
 	Op     string
 	Status int
