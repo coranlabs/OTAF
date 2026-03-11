@@ -324,6 +324,72 @@ func (c *Consumer) Start(ctx context.Context) error {
 	}
 }
 
+func (c *Consumer) reconcile(ctx context.Context) {
+	c.mu.Lock()
+	pending := make([]Subscription, 0, len(c.wanted))
+	for _, s := range c.wanted {
+		if !c.placed[s.JobID] {
+			pending = append(pending, s)
+		}
+	}
+	c.mu.Unlock()
+
+	for _, s := range pending {
+		err := c.Subscribe(ctx, s)
+
+		c.mu.Lock()
+		if err == nil {
+			c.placed[s.JobID] = true
+			delete(c.lastErr, s.JobID)
+		} else {
+			c.lastErr[s.JobID] = err.Error()
+		}
+		c.mu.Unlock()
+
+		entry := c.logger.WithFields(logrus.Fields{"job": s.JobID, "type": s.InfoTypeID})
+		if err != nil {
+			// A type that does not exist yet is the normal case when this
+			// rApp starts before the one producing the data.
+			entry.WithError(err).Info("information job not accepted yet, will retry")
+			continue
+		}
+		entry.WithField("target", c.resultURI(s.DeliverTo)).Info("information job created")
+	}
+}
+
+func (c *Consumer) do(ctx context.Context, method, path string, body []byte, op string) ([]byte, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method,
+		strings.TrimRight(c.cfg.Endpoint, "/")+path, reader)
+	if err != nil {
+		return nil, fmt.Errorf("r1 %s: %w", op, err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", rappsdk.UserAgent)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("r1 %s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	payload, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("r1 %s: %w", op, err)
+	}
+	if resp.StatusCode >= 300 {
+		return nil, &ConsumerError{Op: op, Status: resp.StatusCode, Detail: problemDetail(payload)}
+	}
+	return payload, nil
+}
+
 type ConsumerError struct {
 	Op     string
 	Status int
