@@ -190,6 +190,23 @@ func (c *Consumer) Want(subs ...Subscription) error {
 	return nil
 }
 
+func (c *Consumer) Ping(ctx context.Context) error {
+	_, err := c.do(ctx, http.MethodGet, consumerBase+"/info-types", nil, "list info types")
+	return err
+}
+
+func (c *Consumer) InfoTypes(ctx context.Context) ([]string, error) {
+	body, err := c.do(ctx, http.MethodGet, consumerBase+"/info-types", nil, "list info types")
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	if err := json.Unmarshal(body, &ids); err != nil {
+		return nil, fmt.Errorf("r1 list info types: %w", err)
+	}
+	return ids, nil
+}
+
 func (c *Consumer) InfoType(ctx context.Context, id string) (*InfoType, error) {
 	body, err := c.do(ctx, http.MethodGet,
 		consumerBase+"/info-types/"+url.PathEscape(id), nil, "get info type")
