@@ -284,6 +284,24 @@ func (c *Consumer) Unsubscribe(ctx context.Context, jobID string) error {
 	return nil
 }
 
+func (c *Consumer) resultURI(path string) string {
+	return strings.TrimRight(c.cfg.SelfURL, "/") + "/" + strings.TrimPrefix(path, "/")
+}
+
+// Pending lists subscriptions the platform has not accepted yet, with the
+// reason, so an rApp can surface why data is not arriving.
+func (c *Consumer) Pending() map[string]string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := map[string]string{}
+	for _, s := range c.wanted {
+		if !c.placed[s.JobID] {
+			out[s.JobID] = c.lastErr[s.JobID]
+		}
+	}
+	return out
+}
+
 type ConsumerError struct {
 	Op     string
 	Status int
