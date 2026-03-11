@@ -152,6 +152,44 @@ type Consumer struct {
 	lastErr map[string]string
 }
 
+// NewConsumer returns nil when no endpoint is configured, so an rApp that only
+// produces can hold a nil *Consumer safely.
+func NewConsumer(cfg ConsumerConfig, logger *logrus.Logger) (*Consumer, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if !cfg.Enabled() {
+		return nil, nil
+	}
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = 30 * time.Second
+	}
+	return &Consumer{
+		cfg:     cfg,
+		http:    &http.Client{Timeout: cfg.Timeout},
+		logger:  logger,
+		placed:  map[string]bool{},
+		lastErr: map[string]string{},
+	}, nil
+}
+
+func (c *Consumer) Name() string { return "r1-consumer:" + c.cfg.Owner }
+
+// Want declares a subscription. Nothing is sent until Start runs, and the
+// subscription is retried until the platform accepts it, because a consumer
+// commonly starts before the producer it depends on exists.
+func (c *Consumer) Want(subs ...Subscription) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, s := range subs {
+		if err := s.validate(); err != nil {
+			return err
+		}
+		c.wanted = append(c.wanted, s)
+	}
+	return nil
+}
+
 func (c *Consumer) InfoType(ctx context.Context, id string) (*InfoType, error) {
 	body, err := c.do(ctx, http.MethodGet,
 		consumerBase+"/info-types/"+url.PathEscape(id), nil, "get info type")
