@@ -302,6 +302,28 @@ func (c *Consumer) Pending() map[string]string {
 	return out
 }
 
+// Start places every declared subscription and keeps trying for the ones the
+// platform has not accepted, until ctx ends.
+func (c *Consumer) Start(ctx context.Context) error {
+	if c == nil {
+		return nil
+	}
+
+	c.reconcile(ctx)
+
+	ticker := time.NewTicker(reconcileEvery)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			c.reconcile(ctx)
+		}
+	}
+}
+
 type ConsumerError struct {
 	Op     string
 	Status int
