@@ -75,3 +75,12 @@ type Producer struct {
 }
 
 type Option func(*Producer)
+
+// WithInterval sets the delivery cadence for jobs that do not request one.
+func WithInterval(d time.Duration) Option {
+	return func(p *Producer) {
+		if d >= minInterval {
+			p.interval = d
+		}
+	}
+}
