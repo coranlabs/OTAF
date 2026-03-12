@@ -395,3 +395,26 @@ type ConsumerError struct {
 	Status int
 	Detail string
 }
+
+func (e *ConsumerError) Error() string {
+	if e.Detail == "" {
+		return fmt.Sprintf("r1 %s: status %d", e.Op, e.Status)
+	}
+	return fmt.Sprintf("r1 %s: status %d: %s", e.Op, e.Status, e.Detail)
+}
+
+// Retryable reports whether trying the same call again could succeed. An
+// information type that does not exist yet is deliberately not retryable here:
+// the reconcile loop handles that on a much longer cycle.
+func (e *ConsumerError) Retryable() bool {
+	switch e.Status {
+	case http.StatusRequestTimeout, http.StatusTooManyRequests:
+		return true
+	}
+	return e.Status >= 500
+}
+
+// The three methods below let errs classify this failure without either
+// package importing the other.
+
+func (e *ConsumerError) ErrorCategory() string { return "platform" }
