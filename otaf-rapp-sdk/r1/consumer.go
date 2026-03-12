@@ -435,3 +435,24 @@ func (e *ConsumerError) ErrorCode() string {
 		return "R1_FAILED"
 	}
 }
+
+func IsNotFound(err error) bool {
+	var e *ConsumerError
+	return errors.As(err, &e) && e.Status == http.StatusNotFound
+}
+
+func problemDetail(payload []byte) string {
+	var problem struct {
+		Detail string `json:"detail"`
+		Title  string `json:"title"`
+	}
+	if err := json.Unmarshal(payload, &problem); err == nil {
+		if problem.Detail != "" {
+			return problem.Detail
+		}
+		if problem.Title != "" {
+			return problem.Title
+		}
+	}
+	return strings.TrimSpace(string(payload))
+}
