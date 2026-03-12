@@ -84,3 +84,11 @@ func WithInterval(d time.Duration) Option {
 		}
 	}
 }
+
+func WithHTTPClient(c *http.Client) Option {
+	return func(p *Producer) {
+		if c != nil {
+			p.client = c
+		}
+	}
+}
