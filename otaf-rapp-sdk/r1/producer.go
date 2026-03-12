@@ -54,6 +54,15 @@ type Job struct {
 	nextDue  time.Time
 }
 
+// Interval is how often this job wants delivery, taken from the job data when
+// the consumer asked for a specific cadence.
+func (j Job) Interval() time.Duration { return j.interval }
+
+// Snapshot produces the payload delivered to one job. Returning a nil payload
+// skips that delivery without logging an error, which is how a producer says
+// "nothing matched this job's filter right now".
+type Snapshot func(ctx context.Context, job Job) ([]byte, error)
+
 type Producer struct {
 	id       string
 	snapshot Snapshot
@@ -64,3 +73,5 @@ type Producer struct {
 	mu   sync.RWMutex
 	jobs map[string]*Job
 }
+
+type Option func(*Producer)
