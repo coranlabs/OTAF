@@ -418,3 +418,20 @@ func (e *ConsumerError) Retryable() bool {
 // package importing the other.
 
 func (e *ConsumerError) ErrorCategory() string { return "platform" }
+
+func (e *ConsumerError) HTTPStatus() int { return e.Status }
+
+func (e *ConsumerError) ErrorCode() string {
+	switch {
+	case e.Status == http.StatusNotFound:
+		return "R1_NOT_FOUND"
+	case e.Status == http.StatusConflict:
+		return "R1_CONFLICT"
+	case e.Status >= 500:
+		return "R1_UNAVAILABLE"
+	case e.Status >= 400:
+		return "R1_REJECTED"
+	default:
+		return "R1_FAILED"
+	}
+}
