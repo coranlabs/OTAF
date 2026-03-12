@@ -92,3 +92,20 @@ func WithHTTPClient(c *http.Client) Option {
 		}
 	}
 }
+
+func NewProducer(id string, snapshot Snapshot, logger *logrus.Logger, opts ...Option) *Producer {
+	p := &Producer{
+		id:       id,
+		snapshot: snapshot,
+		logger:   logger,
+		client:   &http.Client{Timeout: 15 * time.Second},
+		interval: defaultInterval,
+		jobs:     map[string]*Job{},
+	}
+	for _, o := range opts {
+		o(p)
+	}
+	return p
+}
+
+func (p *Producer) Name() string { return "r1-producer:" + p.id }
