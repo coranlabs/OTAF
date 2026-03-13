@@ -185,3 +185,16 @@ func (p *Producer) handleJobStart(w http.ResponseWriter, r *http.Request) {
 	}).Info("information job started")
 	w.WriteHeader(http.StatusOK)
 }
+
+func (p *Producer) handleJobStop(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["jobId"]
+
+	p.mu.Lock()
+	_, known := p.jobs[id]
+	delete(p.jobs, id)
+	active := len(p.jobs)
+	p.mu.Unlock()
+
+	p.logger.WithFields(logrus.Fields{"job": id, "known": known, "active": active}).Info("information job stopped")
+	w.WriteHeader(http.StatusNoContent)
+}
