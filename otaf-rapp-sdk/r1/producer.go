@@ -141,3 +141,47 @@ func (p *Producer) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"jobs":        active,
 	})
 }
+
+func (p *Producer) handleJobStart(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "unreadable body", http.StatusBadRequest)
+		return
+	}
+
+	var job Job
+	if err := json.Unmarshal(body, &job); err != nil {
+		p.logger.WithError(err).Warn("information job callback carried invalid JSON")
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if id := mux.Vars(r)["jobId"]; id != "" {
+		job.ID = id
+	}
+	if job.ID == "" {
+		http.Error(w, "missing info_job_identity", http.StatusBadRequest)
+		return
+	}
+	if job.TargetURI == "" {
+		http.Error(w, "missing target_uri", http.StatusBadRequest)
+		return
+	}
+
+	job.interval = p.intervalFor(job.Data)
+	job.nextDue = time.Now()
+
+	p.mu.Lock()
+	p.jobs[job.ID] = &job
+	active := len(p.jobs)
+	p.mu.Unlock()
+
+	p.logger.WithFields(logrus.Fields{
+		"job":      job.ID,
+		"type":     job.TypeID,
+		"target":   job.TargetURI,
+		"owner":    job.Owner,
+		"interval": job.interval,
+		"active":   active,
+	}).Info("information job started")
+	w.WriteHeader(http.StatusOK)
+}
