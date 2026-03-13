@@ -109,3 +109,10 @@ func NewProducer(id string, snapshot Snapshot, logger *logrus.Logger, opts ...Op
 }
 
 func (p *Producer) Name() string { return "r1-producer:" + p.id }
+
+func (p *Producer) Register(r *mux.Router) {
+	r.HandleFunc(HealthPath, p.handleHealth).Methods(http.MethodGet)
+	r.HandleFunc(SubscriptionPath, p.handleJobStart).Methods(http.MethodPost, http.MethodPut)
+	r.HandleFunc(SubscriptionPath+"/{jobId}", p.handleJobStart).Methods(http.MethodPost, http.MethodPut)
+	r.HandleFunc(SubscriptionPath+"/{jobId}", p.handleJobStop).Methods(http.MethodDelete)
+}
