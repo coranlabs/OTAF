@@ -198,3 +198,37 @@ func (p *Producer) handleJobStop(w http.ResponseWriter, r *http.Request) {
 	p.logger.WithFields(logrus.Fields{"job": id, "known": known, "active": active}).Info("information job stopped")
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (p *Producer) intervalFor(data json.RawMessage) time.Duration {
+	if len(data) == 0 {
+		return p.interval
+	}
+	var req struct {
+		Seconds int `json:"delivery_interval_seconds"`
+	}
+	if err := json.Unmarshal(data, &req); err != nil || req.Seconds <= 0 {
+		return p.interval
+	}
+	d := time.Duration(req.Seconds) * time.Second
+	if d < minInterval {
+		return minInterval
+	}
+	return d
+}
+
+// Start delivers to every active job until ctx ends.
+func (p *Producer) Start(ctx context.Context) error {
+	ticker := time.NewTicker(tick)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case now := <-ticker.C:
+			for _, job := range p.due(now) {
+				p.deliver(ctx, job)
+			}
+		}
+	}
+}
