@@ -116,3 +116,28 @@ func (p *Producer) Register(r *mux.Router) {
 	r.HandleFunc(SubscriptionPath+"/{jobId}", p.handleJobStart).Methods(http.MethodPost, http.MethodPut)
 	r.HandleFunc(SubscriptionPath+"/{jobId}", p.handleJobStop).Methods(http.MethodDelete)
 }
+
+func (p *Producer) Open() []string { return []string{HealthPath, SubscriptionPath} }
+
+func (p *Producer) Jobs() []Job {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := make([]Job, 0, len(p.jobs))
+	for _, j := range p.jobs {
+		out = append(out, *j)
+	}
+	return out
+}
+
+func (p *Producer) handleHealth(w http.ResponseWriter, r *http.Request) {
+	p.mu.RLock()
+	active := len(p.jobs)
+	p.mu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":      "healthy",
+		"producer_id": p.id,
+		"jobs":        active,
+	})
+}
