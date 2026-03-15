@@ -232,3 +232,60 @@ func (p *Producer) Start(ctx context.Context) error {
 		}
 	}
 }
+
+func (p *Producer) due(now time.Time) []Job {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	var out []Job
+	for _, j := range p.jobs {
+		if now.Before(j.nextDue) {
+			continue
+		}
+		j.nextDue = now.Add(j.interval)
+		out = append(out, *j)
+	}
+	return out
+}
+
+func (p *Producer) deliver(ctx context.Context, job Job) {
+	// Calling straight into the rApp keeps delivery working regardless of how
+	// the rApp's own endpoints are secured.
+	payload, err := p.snapshot(ctx, job)
+	if err != nil {
+		p.logger.WithError(err).WithField("job", job.ID).Warn("snapshot failed, skipping delivery")
+		return
+	}
+	if len(payload) == 0 {
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, job.TargetURI, bytes.NewReader(payload))
+	if err != nil {
+		p.logger.WithError(err).WithField("job", job.ID).Warn("could not build delivery request")
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", rappsdk.UserAgent)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		p.logger.WithError(err).WithField("job", job.ID).Warn("delivery failed")
+		return
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode >= 300 {
+		p.logger.WithFields(logrus.Fields{
+			"job":    job.ID,
+			"status": resp.StatusCode,
+			"target": job.TargetURI,
+		}).Warn("delivery rejected by consumer")
+		return
+	}
+	p.logger.WithFields(logrus.Fields{
+		"job":   job.ID,
+		"bytes": len(payload),
+	}).Debug("delivered")
+}
