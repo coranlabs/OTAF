@@ -237,3 +237,61 @@ func TestSubscribeValidatesInput(t *testing.T) {
 		}
 	}
 }
+
+// A consumer commonly starts before the rApp producing what it wants, so an
+// unknown type must be a retryable condition rather than a fatal one.
+func TestUnknownTypeIsNotFound(t *testing.T) {
+	c := newTestConsumer(t, newFakeICS().server(t).URL)
+
+	err := c.Subscribe(context.Background(), Subscription{
+		JobID: "job-1", InfoTypeID: "absent", DeliverTo: "/data",
+	})
+	if !IsNotFound(err) {
+		t.Errorf("expected a not-found classification, got %v", err)
+	}
+}
+
+func TestReconcileRetriesUntilTheTypeAppears(t *testing.T) {
+	fake := newFakeICS()
+	c := newTestConsumer(t, fake.server(t).URL)
+
+	if err := c.Want(Subscription{JobID: "job-1", InfoTypeID: "cell-state", DeliverTo: "/data"}); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	c.reconcile(ctx)
+	if fake.jobCount() != 0 {
+		t.Fatal("no job should exist while the type is unknown")
+	}
+	pending := c.Pending()
+	if len(pending) != 1 || pending["job-1"] == "" {
+		t.Errorf("pending = %#v, want job-1 with a reason", pending)
+	}
+
+	fake.addType("cell-state")
+	c.reconcile(ctx)
+
+	if fake.jobCount() != 1 {
+		t.Error("the job should be placed once the type appears")
+	}
+	if len(c.Pending()) != 0 {
+		t.Errorf("nothing should stay pending after success, got %#v", c.Pending())
+	}
+}
+
+func TestReconcileDoesNotResubmitPlacedJobs(t *testing.T) {
+	fake := newFakeICS("cell-state")
+	c := newTestConsumer(t, fake.server(t).URL)
+
+	if err := c.Want(Subscription{JobID: "job-1", InfoTypeID: "cell-state", DeliverTo: "/data"}); err != nil {
+		t.Fatal(err)
+	}
+
+	c.reconcile(context.Background())
+	c.reconcile(context.Background())
+
+	if len(c.Pending()) != 0 {
+		t.Error("a placed job should not be retried")
+	}
+}
