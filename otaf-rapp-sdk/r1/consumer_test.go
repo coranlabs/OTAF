@@ -179,3 +179,22 @@ func newTestConsumer(t *testing.T, endpoint string) *Consumer {
 	}
 	return c
 }
+
+func TestConsumerDisabledWithoutEndpoint(t *testing.T) {
+	c, err := NewConsumer(ConsumerConfig{}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != nil {
+		t.Fatal("an unconfigured endpoint should yield a nil consumer")
+	}
+}
+
+func TestConsumerRequiresOwnerAndSelfURL(t *testing.T) {
+	if _, err := NewConsumer(ConsumerConfig{Endpoint: "http://ics", SelfURL: "http://me"}, quietLogger()); err == nil {
+		t.Error("expected an error when no owner is configured")
+	}
+	if _, err := NewConsumer(ConsumerConfig{Endpoint: "http://ics", Owner: "me"}, quietLogger()); err == nil {
+		t.Error("expected an error when no self URL is configured: a producer must be told where to deliver")
+	}
+}
