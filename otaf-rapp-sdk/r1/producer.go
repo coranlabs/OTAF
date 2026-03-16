@@ -289,3 +289,5 @@ func (p *Producer) deliver(ctx context.Context, job Job) {
 		"bytes": len(payload),
 	}).Debug("delivered")
 }
+
+func (p *Producer) String() string { return fmt.Sprintf("r1 producer %s", p.id) }
