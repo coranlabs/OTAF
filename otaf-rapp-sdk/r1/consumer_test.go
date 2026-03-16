@@ -198,3 +198,42 @@ func TestConsumerRequiresOwnerAndSelfURL(t *testing.T) {
 		t.Error("expected an error when no self URL is configured: a producer must be told where to deliver")
 	}
 }
+
+func TestSubscribeBuildsTheDeliveryTarget(t *testing.T) {
+	fake := newFakeICS("cell-state")
+	c := newTestConsumer(t, fake.server(t).URL)
+
+	err := c.Subscribe(context.Background(), Subscription{
+		JobID: "job-1", InfoTypeID: "cell-state", DeliverTo: "/data",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	job, ok := fake.job("job-1")
+	if !ok {
+		t.Fatal("job was not created")
+	}
+	if job.ResultURI != "http://test-rapp.nonrtric:8080/data" {
+		t.Errorf("result uri = %q, want the rApp's own address plus the delivery path", job.ResultURI)
+	}
+	if job.JobOwner != "test-rapp" {
+		t.Errorf("owner = %q, want test-rapp", job.JobOwner)
+	}
+}
+
+func TestSubscribeValidatesInput(t *testing.T) {
+	c := newTestConsumer(t, newFakeICS().server(t).URL)
+	ctx := context.Background()
+
+	cases := map[string]Subscription{
+		"no job id":        {InfoTypeID: "t", DeliverTo: "/data"},
+		"no type":          {JobID: "j", DeliverTo: "/data"},
+		"no delivery path": {JobID: "j", InfoTypeID: "t"},
+	}
+	for name, s := range cases {
+		if err := c.Subscribe(ctx, s); err == nil {
+			t.Errorf("%s should be rejected before anything is sent", name)
+		}
+	}
+}
