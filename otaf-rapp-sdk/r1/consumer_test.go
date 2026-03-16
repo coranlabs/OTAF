@@ -39,3 +39,22 @@ func newFakeICS(types ...string) *fakeICS {
 	}
 	return f
 }
+
+func (f *fakeICS) addType(id string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.types[id] = true
+}
+
+func (f *fakeICS) jobCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.jobs)
+}
+
+func (f *fakeICS) job(id string) (consumerJob, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	j, ok := f.jobs[id]
+	return j, ok
+}
