@@ -166,3 +166,16 @@ func (f *fakeICS) server(t *testing.T) *httptest.Server {
 	t.Cleanup(srv.Close)
 	return srv
 }
+
+func newTestConsumer(t *testing.T, endpoint string) *Consumer {
+	t.Helper()
+	c, err := NewConsumer(ConsumerConfig{
+		Endpoint: endpoint,
+		Owner:    "test-rapp",
+		SelfURL:  "http://test-rapp.nonrtric:8080",
+	}, quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
