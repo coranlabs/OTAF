@@ -372,3 +372,20 @@ func TestUnsubscribeIsIdempotent(t *testing.T) {
 		t.Errorf("unsubscribing twice should be a no-op, got %v", err)
 	}
 }
+
+func TestStartPlacesSubscriptionsImmediately(t *testing.T) {
+	fake := newFakeICS("cell-state")
+	c := newTestConsumer(t, fake.server(t).URL)
+
+	if err := c.Want(Subscription{JobID: "job-1", InfoTypeID: "cell-state", DeliverTo: "/data"}); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_ = c.Start(ctx)
+
+	if fake.jobCount() != 1 {
+		t.Error("Start should place declared subscriptions without waiting for a tick")
+	}
+}
