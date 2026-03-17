@@ -45,3 +45,30 @@ func newTestProducer(t *testing.T, snap Snapshot) (*Producer, http.Handler) {
 	p.Register(r)
 	return p, r
 }
+
+func startJob(t *testing.T, h http.Handler, body string) int {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, SubscriptionPath+"/job-1", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec.Code
+}
+
+func TestSupervisionReportsHealthy(t *testing.T) {
+	_, h := newTestProducer(t, nil)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, HealthPath, nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("supervision status = %d, want 200", rec.Code)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["status"] != "healthy" {
+		t.Errorf("status = %v, want healthy", body["status"])
+	}
+}
