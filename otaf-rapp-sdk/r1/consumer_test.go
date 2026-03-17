@@ -295,3 +295,80 @@ func TestReconcileDoesNotResubmitPlacedJobs(t *testing.T) {
 		t.Error("a placed job should not be retried")
 	}
 }
+
+func TestJobStatusReflectsProducerPresence(t *testing.T) {
+	fake := newFakeICS("cell-state")
+	c := newTestConsumer(t, fake.server(t).URL)
+	ctx := context.Background()
+
+	if err := c.Subscribe(ctx, Subscription{JobID: "job-1", InfoTypeID: "cell-state", DeliverTo: "/data"}); err != nil {
+		t.Fatal(err)
+	}
+
+	st, err := c.JobStatus(ctx, "job-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Delivering() {
+		t.Error("a job with no producer must not report as delivering")
+	}
+
+	fake.mu.Lock()
+	fake.producer = 1
+	fake.mu.Unlock()
+
+	st, err = c.JobStatus(ctx, "job-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !st.Delivering() {
+		t.Error("a job with a producer should report as delivering")
+	}
+}
+
+// The consumer view of a type names its schema differently from the producer
+// view, and carries producer availability the producer view does not.
+func TestInfoTypeUsesTheConsumerShape(t *testing.T) {
+	fake := newFakeICS("cell-state")
+	c := newTestConsumer(t, fake.server(t).URL)
+	ctx := context.Background()
+
+	it, err := c.InfoType(ctx, "cell-state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(it.Schema) == 0 {
+		t.Error("schema should be populated from job_data_schema")
+	}
+	if it.Available() {
+		t.Error("a type with no producers is not available")
+	}
+
+	fake.mu.Lock()
+	fake.producer = 2
+	fake.mu.Unlock()
+
+	it, err = c.InfoType(ctx, "cell-state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !it.Available() {
+		t.Error("a type with producers should be available")
+	}
+}
+
+func TestUnsubscribeIsIdempotent(t *testing.T) {
+	fake := newFakeICS("cell-state")
+	c := newTestConsumer(t, fake.server(t).URL)
+	ctx := context.Background()
+
+	if err := c.Subscribe(ctx, Subscription{JobID: "job-1", InfoTypeID: "cell-state", DeliverTo: "/data"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Unsubscribe(ctx, "job-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Unsubscribe(ctx, "job-1"); err != nil {
+		t.Errorf("unsubscribing twice should be a no-op, got %v", err)
+	}
+}
