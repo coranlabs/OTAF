@@ -35,3 +35,13 @@ func quietLogger() *logrus.Logger {
 }
 
 type discard struct{}
+
+func (discard) Write(p []byte) (int, error) { return len(p), nil }
+
+func newTestProducer(t *testing.T, snap Snapshot) (*Producer, http.Handler) {
+	t.Helper()
+	p := NewProducer("demo-producer", snap, quietLogger())
+	r := mux.NewRouter()
+	p.Register(r)
+	return p, r
+}
