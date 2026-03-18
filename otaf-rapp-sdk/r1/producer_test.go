@@ -168,3 +168,23 @@ func TestDeliveryPostsSnapshotToConsumer(t *testing.T) {
 	}
 	t.Fatal("consumer never received a delivery")
 }
+
+func TestEmptySnapshotSkipsDelivery(t *testing.T) {
+	var calls int
+	consumer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer consumer.Close()
+
+	p, h := newTestProducer(t, func(context.Context, Job) ([]byte, error) { return nil, nil })
+	startJob(t, h, `{"target_uri":"`+consumer.URL+`"}`)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	defer cancel()
+	_ = p.Start(ctx)
+
+	if calls != 0 {
+		t.Errorf("consumer was called %d times, want 0 when the snapshot is empty", calls)
+	}
+}
