@@ -77,3 +77,11 @@ type App struct {
 type Option func(*App)
 
 func WithLogger(l *logrus.Logger) Option { return func(a *App) { a.logger = l } }
+
+func WithGuard(g *auth.Guard) Option { return func(a *App) { a.guard = g } }
+
+func WithPipeline(p *ingest.Pipeline) Option { return func(a *App) { a.pipeline = p } }
+
+func WithComponent(c Component) Option {
+	return func(a *App) { a.components = append(a.components, c) }
+}
