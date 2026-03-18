@@ -44,6 +44,17 @@ type Component interface {
 	Start(ctx context.Context) error
 }
 
+// A source or component implementing routeRegistrar gets its endpoints wired
+// before the server starts listening.
+type routeRegistrar interface {
+	Register(r *mux.Router)
+}
+
+// openLister names paths that must stay reachable without an operator session.
+type openLister interface {
+	Open() []string
+}
+
 type App struct {
 	cfg    config.Rapp
 	logger *logrus.Logger
@@ -64,3 +75,5 @@ type App struct {
 }
 
 type Option func(*App)
+
+func WithLogger(l *logrus.Logger) Option { return func(a *App) { a.logger = l } }
