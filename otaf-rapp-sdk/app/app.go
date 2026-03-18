@@ -85,3 +85,16 @@ func WithPipeline(p *ingest.Pipeline) Option { return func(a *App) { a.pipeline 
 func WithComponent(c Component) Option {
 	return func(a *App) { a.components = append(a.components, c) }
 }
+
+func WithHealthInterval(d time.Duration) Option {
+	return func(a *App) {
+		if d > 0 {
+			a.healthEvery = d
+		}
+	}
+}
+
+// WithStatusDetail adds rApp-specific fields to the status payload.
+func WithStatusDetail(fn func() map[string]any) Option {
+	return func(a *App) { a.statusExtra = fn }
+}
