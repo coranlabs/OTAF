@@ -117,3 +117,54 @@ func TestConsumerIntervalIsHonoured(t *testing.T) {
 		t.Errorf("interval = %v, want 90s", jobs[0].Interval())
 	}
 }
+
+func TestIntervalBelowFloorIsRaised(t *testing.T) {
+	p, h := newTestProducer(t, nil)
+
+	startJob(t, h, `{"target_uri":"http://consumer/data","info_job_data":{"delivery_interval_seconds":1}}`)
+
+	if got := p.Jobs()[0].Interval(); got != minInterval {
+		t.Errorf("interval = %v, want it raised to %v", got, minInterval)
+	}
+}
+
+// Delivery calls straight into the rApp, so it keeps working no matter how the
+// rApp's own endpoints are secured.
+func TestDeliveryPostsSnapshotToConsumer(t *testing.T) {
+	var (
+		mu       sync.Mutex
+		received []byte
+	)
+	consumer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(buf)
+		mu.Lock()
+		received = buf
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer consumer.Close()
+
+	snapshot := func(_ context.Context, job Job) ([]byte, error) {
+		return []byte(`{"job":"` + job.ID + `"}`), nil
+	}
+
+	p, h := newTestProducer(t, snapshot)
+	startJob(t, h, `{"target_uri":"`+consumer.URL+`"}`)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = p.Start(ctx) }()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		got := len(received)
+		mu.Unlock()
+		if got > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("consumer never received a delivery")
+}
