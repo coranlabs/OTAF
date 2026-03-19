@@ -156,3 +156,5 @@ func New(cfg config.Rapp, opts ...Option) (*App, error) {
 func (a *App) Router() *mux.Router { return a.router }
 
 func (a *App) Logger() *logrus.Logger { return a.logger }
+
+func (a *App) Health() *health.Registry { return a.health }
