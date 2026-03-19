@@ -98,3 +98,61 @@ func WithHealthInterval(d time.Duration) Option {
 func WithStatusDetail(fn func() map[string]any) Option {
 	return func(a *App) { a.statusExtra = fn }
 }
+
+func New(cfg config.Rapp, opts ...Option) (*App, error) {
+	a := &App{
+		cfg:          cfg,
+		router:       mux.NewRouter(),
+		healthEvery:  2 * time.Minute,
+		shutdownWait: 10 * time.Second,
+		startedAt:    time.Now(),
+	}
+	for _, o := range opts {
+		o(a)
+	}
+	if a.logger == nil {
+		a.logger = log.New(cfg.LogLevel, cfg.LogFormat)
+	}
+	if a.health == nil {
+		a.health = health.NewRegistry(a.logger)
+	}
+	if cfg.HTTPPort == "" {
+		return nil, errs.New(errs.CategoryConfig, "APP_NO_HTTP_PORT",
+			"app: no HTTP port configured")
+	}
+
+	// Snapshots are read at scrape time, so the metrics can never disagree
+	// with what /status reports.
+	a.metrics = metrics.New(cfg.Name, cfg.Version, metrics.Snapshots{
+		Ingest: func() metrics.IngestStats {
+			if a.pipeline == nil {
+				return metrics.IngestStats{}
+			}
+			s := a.pipeline.Stats()
+			return metrics.IngestStats{
+				Queued: s.Queued, Capacity: s.Capacity,
+				Accepted: s.Accepted, Dropped: s.Dropped,
+				Failed: s.Failed, Processed: s.Processed,
+			}
+		},
+		Dependency: func() map[string]bool {
+			out := map[string]bool{}
+			for name, status := range a.health.Snapshot() {
+				out[name] = status.Healthy
+			}
+			return out
+		},
+	})
+	if a.pipeline != nil {
+		a.pipeline.SetObserver(ingest.ObserverFunc(a.metrics.Handled))
+	}
+
+	a.registerBuiltins()
+	return a, nil
+}
+
+// Router exposes the mux an rApp adds its own endpoints to. Anything
+// registered here sits behind the guard unless explicitly opened.
+func (a *App) Router() *mux.Router { return a.router }
+
+func (a *App) Logger() *logrus.Logger { return a.logger }
