@@ -278,3 +278,22 @@ func (a *App) wireRoutes() {
 		}
 	}
 }
+
+// SignalContext cancels when the platform sends SIGTERM, which is how a
+// deployment managed over R1 is stopped.
+func SignalContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(parent, syscall.SIGINT, syscall.SIGTERM)
+}
+
+// Fatal reports a startup failure the way the platform can see it, then exits.
+// The classification goes with it, so a crash loop can be diagnosed from the
+// logs alone: a config failure needs someone to change something, while a
+// platform one may simply mean the rApp started first.
+func Fatal(logger *logrus.Logger, err error, msg string) {
+	if logger != nil {
+		log.Failure(logger, err, msg)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s [%s]: %v\n", msg, errs.CategoryOf(err), err)
+	}
+	os.Exit(1)
+}
