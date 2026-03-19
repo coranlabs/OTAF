@@ -164,3 +164,117 @@ func (a *App) Health() *health.Registry { return a.health }
 func (a *App) Metrics() *metrics.Metrics { return a.metrics }
 
 func (a *App) Config() config.Rapp { return a.cfg }
+
+// Open marks rApp endpoints as reachable without a session, for cases the SDK
+// cannot infer, such as a callback a platform service posts to.
+func (a *App) Open(paths ...string) {
+	if a.guard != nil {
+		a.guard.Open(paths...)
+	}
+}
+
+// Run blocks until ctx ends, then drains the pipeline and stops the server.
+func (a *App) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if a.guard != nil {
+		a.guard.Register(a.router)
+	}
+	a.wireRoutes()
+
+	var wg sync.WaitGroup
+
+	if a.pipeline != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := a.pipeline.Run(ctx); err != nil {
+				a.logger.WithError(err).Error("ingest pipeline stopped")
+			}
+		}()
+	}
+
+	for _, c := range a.components {
+		wg.Add(1)
+		go func(c Component) {
+			defer wg.Done()
+			if err := c.Start(ctx); err != nil && ctx.Err() == nil {
+				a.logger.WithError(err).WithField("component", c.Name()).Error("component stopped")
+			}
+		}(c)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		a.health.Monitor(ctx, a.healthEvery)
+	}()
+
+	var handler http.Handler = a.router
+	if a.guard != nil {
+		handler = a.guard.Wrap(a.router)
+		a.logger.Info("operator authentication enabled")
+	}
+
+	a.server = &http.Server{
+		Addr:              ":" + a.cfg.HTTPPort,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		a.logger.WithFields(logrus.Fields{
+			"rapp":    a.cfg.Name,
+			"version": a.cfg.Version,
+			"port":    a.cfg.HTTPPort,
+			"sdk":     rappsdk.UserAgent,
+		}).Info("rApp started")
+		if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+	}()
+
+	select {
+	case err := <-serverErr:
+		cancel()
+		wg.Wait()
+		return err
+	case <-ctx.Done():
+	}
+
+	a.logger.Info("shutting down")
+	shutdownCtx, stop := context.WithTimeout(context.Background(), a.shutdownWait)
+	defer stop()
+	if err := a.server.Shutdown(shutdownCtx); err != nil {
+		a.logger.WithError(err).Warn("HTTP shutdown did not complete cleanly")
+	}
+
+	wg.Wait()
+	a.logger.Info("rApp stopped")
+	return nil
+}
+
+// wireRoutes lets sources and components contribute endpoints without the
+// rApp having to remember to register each one.
+func (a *App) wireRoutes() {
+	var parts []any
+	if a.pipeline != nil {
+		for _, s := range a.pipeline.Sources() {
+			parts = append(parts, s)
+		}
+	}
+	for _, c := range a.components {
+		parts = append(parts, c)
+	}
+
+	for _, p := range parts {
+		if reg, ok := p.(routeRegistrar); ok {
+			reg.Register(a.router)
+		}
+		if op, ok := p.(openLister); ok && a.guard != nil {
+			a.guard.Open(op.Open()...)
+		}
+	}
+}
