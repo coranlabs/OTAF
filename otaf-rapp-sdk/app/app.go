@@ -158,3 +158,9 @@ func (a *App) Router() *mux.Router { return a.router }
 func (a *App) Logger() *logrus.Logger { return a.logger }
 
 func (a *App) Health() *health.Registry { return a.health }
+
+// Metrics exposes the rApp's metric set so it can register measurements of its
+// own on the same endpoint.
+func (a *App) Metrics() *metrics.Metrics { return a.metrics }
+
+func (a *App) Config() config.Rapp { return a.cfg }
