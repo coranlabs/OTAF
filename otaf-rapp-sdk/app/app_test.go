@@ -40,3 +40,9 @@ func quietLogger() *logrus.Logger {
 }
 
 type discard struct{}
+
+func (discard) Write(p []byte) (int, error) { return len(p), nil }
+
+func testConfig(port string) config.Rapp {
+	return config.Rapp{Name: "demo", Version: "0.1.0", HTTPPort: port, LogLevel: "panic", LogFormat: "text"}
+}
