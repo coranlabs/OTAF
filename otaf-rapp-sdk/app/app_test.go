@@ -102,3 +102,19 @@ func getJSON(t *testing.T, url string) (int, map[string]any) {
 	_ = json.Unmarshal(body, &parsed)
 	return resp.StatusCode, parsed
 }
+
+func TestPlatformEndpointsAreServed(t *testing.T) {
+	base, stop := run(t, "18191")
+	defer stop()
+
+	for _, path := range []string{"/health", "/status", "/metrics", "/ready"} {
+		resp, err := http.Get(base + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s status = %d, want 200", path, resp.StatusCode)
+		}
+	}
+}
