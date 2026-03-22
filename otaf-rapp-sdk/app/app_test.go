@@ -118,3 +118,47 @@ func TestPlatformEndpointsAreServed(t *testing.T) {
 		}
 	}
 }
+
+// The monitoring stack scrapes this endpoint directly, so it has to be
+// Prometheus exposition rather than something that merely looks like metrics.
+func TestMetricsEndpointIsScrapable(t *testing.T) {
+	handler := ingest.HandlerFunc(func(context.Context, ingest.Message) error { return nil })
+	pipeline := ingest.NewPipeline(handler, ingest.WithBuffer(8))
+	pipeline.AddSource(httpsrc.New("/data"))
+
+	base, stop := run(t, "18195", WithPipeline(pipeline))
+	defer stop()
+
+	resp, err := http.Post(base+"/data", "application/json", strings.NewReader(`{"id":"a"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	var body string
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		body = scrapeText(t, base+"/metrics")
+		if strings.Contains(body, `rapp_handler_duration_seconds_count{outcome="ok"`) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	for _, want := range []string{
+		"# HELP rapp_build_info",
+		"# TYPE rapp_build_info gauge",
+		`rapp="demo"`,
+		"rapp_ingest_queue_capacity 8",
+		`rapp_ingest_messages_total{outcome="accepted"} 1`,
+		`rapp_handler_duration_seconds_count{outcome="ok"`,
+		"go_goroutines",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("scrape is missing %q", want)
+		}
+	}
+	if strings.HasPrefix(strings.TrimSpace(body), "{") {
+		t.Error("metrics must not be JSON: no scraper can read it")
+	}
+}
