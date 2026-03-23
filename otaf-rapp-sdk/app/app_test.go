@@ -240,3 +240,76 @@ func TestReadinessFollowsDependenciesButLivenessDoesNot(t *testing.T) {
 		t.Errorf("health status = %d, want 200 regardless of dependencies", code)
 	}
 }
+
+// A source that serves HTTP should have its endpoint wired without the rApp
+// having to register it by hand.
+func TestIngestSourceRoutesAreWiredAutomatically(t *testing.T) {
+	var seen chan struct{} = make(chan struct{}, 1)
+
+	handler := ingest.HandlerFunc(func(context.Context, ingest.Message) error {
+		select {
+		case seen <- struct{}{}:
+		default:
+		}
+		return nil
+	})
+
+	pipeline := ingest.NewPipeline(handler, ingest.WithBuffer(4))
+	pipeline.AddSource(httpsrc.New("/data"))
+
+	base, stop := run(t, "18194", WithPipeline(pipeline))
+	defer stop()
+
+	resp, err := http.Post(base+"/data", "application/json", strings.NewReader(`{"id":"cell-1"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("POST /data status = %d, want 202", resp.StatusCode)
+	}
+
+	select {
+	case <-seen:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler never received the posted message")
+	}
+}
+
+// The whole point of classifying: a failure inside the rApp's own handler
+// reaches the dashboard already labelled with what kind of failure it was.
+func TestHandlerFailuresReachMetricsClassified(t *testing.T) {
+	handler := ingest.HandlerFunc(func(context.Context, ingest.Message) error {
+		return errs.New(errs.CategoryData, "MALFORMED_REPORT", "report has no cell id")
+	})
+
+	pipeline := ingest.NewPipeline(handler, ingest.WithBuffer(8))
+	pipeline.AddSource(httpsrc.New("/data"))
+
+	base, stop := run(t, "18196", WithPipeline(pipeline))
+	defer stop()
+
+	resp, err := http.Post(base+"/data", "application/json", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	want := `rapp_failures_total{category="data",code="MALFORMED_REPORT"} 1`
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Contains(scrapeText(t, base+"/metrics"), want) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Errorf("scrape never showed %q", want)
+}
+
+func TestMissingPortIsRejected(t *testing.T) {
+	cfg := testConfig("")
+	if _, err := New(cfg, WithLogger(quietLogger())); err == nil {
+		t.Fatal("expected an error when no HTTP port is configured")
+	}
+}
