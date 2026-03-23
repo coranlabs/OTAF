@@ -180,3 +180,63 @@ func scrapeText(t *testing.T, url string) string {
 	}
 	return string(body)
 }
+
+func TestStatusCarriesRappIdentity(t *testing.T) {
+	base, stop := run(t, "18192", WithStatusDetail(func() map[string]any {
+		return map[string]any{"cells_tracked": 3}
+	}))
+	defer stop()
+
+	_, body := getJSON(t, base+"/status")
+
+	if body["rapp"] != "demo" {
+		t.Errorf("rapp = %v, want demo", body["rapp"])
+	}
+	if body["cells_tracked"] != float64(3) {
+		t.Errorf("cells_tracked = %v, want 3", body["cells_tracked"])
+	}
+	if sdk, _ := body["sdk"].(string); !strings.Contains(sdk, "rApp-SDK") {
+		t.Errorf("sdk = %v, want the SDK identifier", body["sdk"])
+	}
+}
+
+// Readiness reflects dependencies; liveness must not, or a controller outage
+// would have the platform restart a perfectly healthy rApp.
+func TestReadinessFollowsDependenciesButLivenessDoesNot(t *testing.T) {
+	a, err := New(testConfig("18193"), WithLogger(quietLogger()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Health().Add(health.Func("controller", func(context.Context) error {
+		return errors.New("unreachable")
+	}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		_ = a.Run(ctx)
+		close(done)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	base := "http://127.0.0.1:18193"
+	waitReachable(t, base+"/health")
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if code, _ := getJSON(t, base+"/ready"); code == http.StatusServiceUnavailable {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if code, _ := getJSON(t, base+"/ready"); code != http.StatusServiceUnavailable {
+		t.Errorf("ready status = %d, want 503 while a dependency is down", code)
+	}
+	if code, _ := getJSON(t, base+"/health"); code != http.StatusOK {
+		t.Errorf("health status = %d, want 200 regardless of dependencies", code)
+	}
+}
