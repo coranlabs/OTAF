@@ -162,3 +162,21 @@ func TestMetricsEndpointIsScrapable(t *testing.T) {
 		t.Error("metrics must not be JSON: no scraper can read it")
 	}
 }
+
+func scrapeText(t *testing.T, url string) string {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/plain") {
+		t.Fatalf("content type = %q, want Prometheus text exposition", ct)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
