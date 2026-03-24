@@ -242,3 +242,20 @@ func writeZip(dest string, contents map[string][]byte) error {
 	}
 	return os.WriteFile(dest, buf.Bytes(), 0o644)
 }
+
+// artifactKey turns a chart file name into a YAML-safe artifact key.
+func artifactKey(chartFile string) string {
+	base := strings.TrimSuffix(chartFile, ".tgz")
+	var b strings.Builder
+	for _, r := range base {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			b.WriteRune(r)
+		case r == '.':
+			b.WriteByte('-')
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return b.String()
+}
