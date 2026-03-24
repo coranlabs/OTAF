@@ -142,3 +142,15 @@ artifact_types:
         required: true
         type: string
 `
+
+func renderToscaMeta(s *Spec) string {
+	var b strings.Builder
+	b.WriteString("TOSCA-Meta-File-Version: 1.0\n")
+	b.WriteString("CSAR-Version: 1.0\n")
+	b.WriteString(fmt.Sprintf("Created-By: %s\n", s.Provider))
+	b.WriteString(fmt.Sprintf("%s: %s\n", entryDefinitionsKey, AsdPath))
+	b.WriteString(fmt.Sprintf("ETSI-Entry-Manifest: %s\n", manifestName(s)))
+	return b.String()
+}
+
+func manifestName(s *Spec) string { return s.Name + ".mf" }
