@@ -154,3 +154,35 @@ func renderToscaMeta(s *Spec) string {
 }
 
 func manifestName(s *Spec) string { return s.Name + ".mf" }
+
+func renderManifest(s *Spec, sources []string) string {
+	var b strings.Builder
+	b.WriteString("metadata:\n")
+	b.WriteString(fmt.Sprintf("  application_name: %s\n", s.Name))
+	b.WriteString(fmt.Sprintf("  application_provider: %s\n", s.Provider))
+	b.WriteString(fmt.Sprintf("  release_date_time: %s\n", time.Now().UTC().Format(time.RFC3339)))
+	b.WriteString("  entry_definition_type: asd\n\n")
+
+	ordered := append([]string(nil), sources...)
+	sort.Strings(ordered)
+	for _, src := range ordered {
+		b.WriteString(fmt.Sprintf("Source: %s\n", src))
+	}
+	return b.String()
+}
+
+// yamlString always quotes. Versions and identifiers must survive as written:
+// left bare, a value such as 1.10 is read as the number 1.1.
+func yamlString(v string) string {
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", " ").Replace(v) + `"`
+}
+
+func yamlScalar(v string) string {
+	if v == "" {
+		return `""`
+	}
+	if strings.ContainsAny(v, ":#{}[],&*?|-<>=!%@`\"'\n") || strings.TrimSpace(v) != v {
+		return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", " ").Replace(v) + `"`
+	}
+	return v
+}
