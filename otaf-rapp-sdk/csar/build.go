@@ -188,3 +188,33 @@ func packageChart(dir string) (string, []byte, error) {
 	}
 	return "", nil, fmt.Errorf("helm package %s produced no archive", dir)
 }
+
+func collectResources(s *Spec, contents map[string][]byte) error {
+	root := s.ResourceDir
+	if _, err := os.Stat(root); err != nil {
+		return fmt.Errorf("resource directory %s: %w", root, err)
+	}
+
+	return filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if !strings.HasPrefix(rel, "Files/") {
+			return nil
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		contents[rel] = data
+		return nil
+	})
+}
