@@ -218,3 +218,27 @@ func collectResources(s *Spec, contents map[string][]byte) error {
 		return nil
 	})
 }
+
+func writeZip(dest string, contents map[string][]byte) error {
+	names := make([]string, 0, len(contents))
+	for name := range contents {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, name := range names {
+		w, err := zw.Create(name)
+		if err != nil {
+			return fmt.Errorf("archive %s: %w", name, err)
+		}
+		if _, err := io.Copy(w, bytes.NewReader(contents[name])); err != nil {
+			return fmt.Errorf("archive %s: %w", name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return err
+	}
+	return os.WriteFile(dest, buf.Bytes(), 0o644)
+}
