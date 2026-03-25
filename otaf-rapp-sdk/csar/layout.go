@@ -41,3 +41,16 @@ const (
 	TargetServerChart   = "chartmuseum"
 	defaultSchemaVersio = "2.0"
 )
+
+// ResourceDirs are the directories rApp Manager scans for resources it hands
+// to the platform services. Every file placed here is picked up by base name.
+var ResourceDirs = []string{
+	AcmInstancesDir,
+	SmeProvidersDir,
+	SmeServiceApisDir,
+	SmeInvokersDir,
+	DmeProducerTypesDir,
+	DmeConsumerTypesDir,
+	DmeProducersDir,
+	DmeConsumersDir,
+}
