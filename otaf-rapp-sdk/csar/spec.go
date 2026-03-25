@@ -25,3 +25,27 @@ import (
 )
 
 const SpecFile = "rapp-package.yaml"
+
+// Spec declares everything needed to assemble the rApp package. It is written
+// once by the scaffolder and then edited by hand as the rApp grows.
+type Spec struct {
+	Name        string `yaml:"name"`
+	Version     string `yaml:"version"`
+	Provider    string `yaml:"provider"`
+	Description string `yaml:"description"`
+
+	// Both identifiers must stay stable for the life of the rApp: rApp
+	// Manager refuses a package whose descriptor id it has already onboarded,
+	// and the invariant id is what ties versions of the same rApp together.
+	DescriptorID          string `yaml:"descriptor_id"`
+	DescriptorInvariantID string `yaml:"descriptor_invariant_id"`
+
+	SchemaVersion string `yaml:"schema_version"`
+
+	Charts []Chart `yaml:"charts"`
+
+	ResourceDir string `yaml:"resource_dir"`
+	OutputDir   string `yaml:"output_dir"`
+}
+
+const DefaultChartMuseum = "http://chartmuseum.nonrtric:8080/api/charts"
