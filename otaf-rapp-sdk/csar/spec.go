@@ -58,3 +58,19 @@ type Chart struct {
 }
 
 const DefaultChartMuseum = "http://chartmuseum.nonrtric:8080/api/charts"
+
+func LoadSpec(path string) (*Spec, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var s Spec
+	if err := yaml.Unmarshal(data, &s); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	s.applyDefaults(filepath.Dir(path))
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
