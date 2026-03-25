@@ -48,4 +48,13 @@ type Spec struct {
 	OutputDir   string `yaml:"output_dir"`
 }
 
+// Chart is one Helm artifact the platform uploads to the chart repository
+// before the automation composition deploys it.
+type Chart struct {
+	// Path is a chart directory to package, or a prebuilt .tgz.
+	Path string `yaml:"path"`
+	// TargetServerURI is the chart repository the platform pushes to.
+	TargetServerURI string `yaml:"target_server_uri"`
+}
+
 const DefaultChartMuseum = "http://chartmuseum.nonrtric:8080/api/charts"
