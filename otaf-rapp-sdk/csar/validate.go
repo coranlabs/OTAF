@@ -63,3 +63,13 @@ func (r *Report) OK() bool {
 func (r *Report) Errors() []Finding   { return r.filter(SeverityError) }
 
 func (r *Report) Warnings() []Finding { return r.filter(SeverityWarn) }
+
+func (r *Report) filter(s Severity) []Finding {
+	var out []Finding
+	for _, f := range r.Findings {
+		if f.Severity == s {
+			out = append(out, f)
+		}
+	}
+	return out
+}
