@@ -59,3 +59,7 @@ func (r *Report) OK() bool {
 	}
 	return true
 }
+
+func (r *Report) Errors() []Finding   { return r.filter(SeverityError) }
+
+func (r *Report) Warnings() []Finding { return r.filter(SeverityWarn) }
