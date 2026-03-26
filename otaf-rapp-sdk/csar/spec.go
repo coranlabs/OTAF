@@ -74,3 +74,74 @@ func LoadSpec(path string) (*Spec, error) {
 	}
 	return &s, nil
 }
+
+func (s *Spec) applyDefaults(root string) {
+	if s.SchemaVersion == "" {
+		s.SchemaVersion = defaultSchemaVersio
+	}
+	if s.ResourceDir == "" {
+		s.ResourceDir = "rapp-package"
+	}
+	if s.OutputDir == "" {
+		s.OutputDir = "dist"
+	}
+	if !filepath.IsAbs(s.ResourceDir) {
+		s.ResourceDir = filepath.Join(root, s.ResourceDir)
+	}
+	if !filepath.IsAbs(s.OutputDir) {
+		s.OutputDir = filepath.Join(root, s.OutputDir)
+	}
+	for i := range s.Charts {
+		if s.Charts[i].TargetServerURI == "" {
+			s.Charts[i].TargetServerURI = DefaultChartMuseum
+		}
+		if !filepath.IsAbs(s.Charts[i].Path) {
+			s.Charts[i].Path = filepath.Join(root, s.Charts[i].Path)
+		}
+	}
+}
+
+func (s *Spec) Validate() error {
+	var problems []string
+
+	if strings.TrimSpace(s.Name) == "" {
+		problems = append(problems, "name is required")
+	}
+	if strings.TrimSpace(s.Version) == "" {
+		problems = append(problems, "version is required")
+	}
+	if strings.TrimSpace(s.Provider) == "" {
+		problems = append(problems, "provider is required")
+	}
+	if !isUUID(s.DescriptorID) {
+		problems = append(problems, "descriptor_id must be a UUID")
+	}
+	if !isUUID(s.DescriptorInvariantID) {
+		problems = append(problems, "descriptor_invariant_id must be a UUID")
+	}
+	if s.DescriptorID != "" && s.DescriptorID == s.DescriptorInvariantID {
+		problems = append(problems, "descriptor_id and descriptor_invariant_id must differ")
+	}
+	if len(s.Charts) == 0 {
+		problems = append(problems,
+			"at least one chart is required: a package with no deployment item is rejected when the platform primes it")
+	}
+	for i, c := range s.Charts {
+		if strings.TrimSpace(c.Path) == "" {
+			problems = append(problems, fmt.Sprintf("charts[%d].path is required", i))
+		}
+		if strings.TrimSpace(c.TargetServerURI) == "" {
+			problems = append(problems, fmt.Sprintf("charts[%d].target_server_uri is required", i))
+		}
+	}
+
+	if len(problems) > 0 {
+		return errors.New(SpecFile + " is not usable:\n  - " + strings.Join(problems, "\n  - "))
+	}
+	return nil
+}
+
+// CsarName is the file name the platform accepts on upload.
+func (s *Spec) CsarName() string {
+	return fmt.Sprintf("%s-%s.csar", s.Name, s.Version)
+}
