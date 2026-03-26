@@ -73,3 +73,7 @@ func (r *Report) filter(s Severity) []Finding {
 	}
 	return out
 }
+
+func (r *Report) fail(rule, msg, hint string) {
+	r.Findings = append(r.Findings, Finding{Rule: rule, Severity: SeverityError, Message: msg, Hint: hint})
+}
