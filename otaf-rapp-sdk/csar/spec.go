@@ -145,3 +145,23 @@ func (s *Spec) Validate() error {
 func (s *Spec) CsarName() string {
 	return fmt.Sprintf("%s-%s.csar", s.Name, s.Version)
 }
+
+func isUUID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, r := range s {
+		switch i {
+		case 8, 13, 18, 23:
+			if r != '-' {
+				return false
+			}
+		default:
+			isHex := (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+			if !isHex {
+				return false
+			}
+		}
+	}
+	return true
+}
