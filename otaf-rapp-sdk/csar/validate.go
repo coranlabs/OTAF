@@ -39,3 +39,23 @@ type Finding struct {
 	Message  string   `json:"message"`
 	Hint     string   `json:"hint,omitempty"`
 }
+
+type Report struct {
+	Package               string    `json:"package"`
+	ApplicationName       string    `json:"application_name,omitempty"`
+	ApplicationVersion    string    `json:"application_version,omitempty"`
+	DescriptorID          string    `json:"descriptor_id,omitempty"`
+	DescriptorInvariantID string    `json:"descriptor_invariant_id,omitempty"`
+	DeploymentItems       int       `json:"deployment_items"`
+	Resources             []string  `json:"resources,omitempty"`
+	Findings              []Finding `json:"findings"`
+}
+
+func (r *Report) OK() bool {
+	for _, f := range r.Findings {
+		if f.Severity == SeverityError {
+			return false
+		}
+	}
+	return true
+}
