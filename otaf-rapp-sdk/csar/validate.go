@@ -139,3 +139,121 @@ func checkRequiredFiles(r *Report, files map[string][]byte) {
 		}
 	}
 }
+
+func checkToscaMeta(r *Report, files map[string][]byte) string {
+	raw, ok := files[ToscaMetaPath]
+	if !ok {
+		return ""
+	}
+
+	var entry string
+	for _, line := range strings.Split(string(raw), "\n") {
+		key, value, found := strings.Cut(line, ":")
+		if !found {
+			continue
+		}
+		if strings.TrimSpace(key) == entryDefinitionsKey {
+			entry = strings.TrimSpace(value)
+			break
+		}
+	}
+
+	if entry == "" {
+		r.fail("tosca-entry-definitions",
+			fmt.Sprintf("%s has no %s entry", ToscaMetaPath, entryDefinitionsKey),
+			"this is the only way the platform locates the ASD inside the package")
+		return ""
+	}
+	if _, ok := files[entry]; !ok {
+		r.fail("tosca-entry-definitions",
+			fmt.Sprintf("%s points at %s, which is not in the package", entryDefinitionsKey, entry),
+			"")
+		return ""
+	}
+	return entry
+}
+
+func checkAsd(r *Report, files map[string][]byte, asdPath string) []map[string]any {
+	if asdPath == "" {
+		return nil
+	}
+
+	var doc map[string]any
+	if err := yaml.Unmarshal(files[asdPath], &doc); err != nil {
+		r.fail("asd-parse", fmt.Sprintf("%s is not valid YAML: %v", asdPath, err), "")
+		return nil
+	}
+
+	node := dig(doc, "topology_template", "node_templates", "applicationServiceDescriptor")
+	if node == nil {
+		r.fail("asd-structure",
+			"ASD has no topology_template.node_templates.applicationServiceDescriptor",
+			"the platform reads the descriptor from exactly this path")
+		return nil
+	}
+
+	props, _ := dig(node, "properties").(map[string]any)
+	if props == nil {
+		r.fail("asd-descriptor", "ASD node has no properties block", "")
+		return nil
+	}
+
+	r.ApplicationName = str(props["application_name"])
+	r.ApplicationVersion = str(props["application_version"])
+	r.DescriptorID = str(props["descriptor_id"])
+	r.DescriptorInvariantID = str(props["descriptor_invariant_id"])
+
+	for key, value := range map[string]string{
+		"descriptor_id":           r.DescriptorID,
+		"descriptor_invariant_id": r.DescriptorInvariantID,
+	} {
+		if value == "" {
+			r.fail("asd-descriptor",
+				fmt.Sprintf("%s is empty", key),
+				"onboarding is refused outright when either identifier is missing")
+			continue
+		}
+		if !isUUID(value) {
+			r.warn("asd-descriptor",
+				fmt.Sprintf("%s %q is not a UUID", key, value),
+				"the ASD schema calls for RFC 4122 UUIDs")
+		}
+	}
+	if r.ApplicationName == "" {
+		r.fail("asd-descriptor", "application_name is empty",
+			"the platform treats a descriptor without an application name as unparseable")
+	}
+
+	if _, hasLegacy := props["deploymentItems"]; hasLegacy {
+		r.fail("deployment-items",
+			"deployment items are declared under properties.deploymentItems",
+			"move them to the artifacts block; the platform reads deployment items only from artifacts and overwrites anything found in properties")
+	}
+
+	artifacts, _ := dig(node, "artifacts").(map[string]any)
+	if len(artifacts) == 0 {
+		r.fail("deployment-items",
+			"ASD declares no artifacts",
+			"priming fails with \"No deployment items found in ASD metadata\" when this list is empty")
+		return nil
+	}
+
+	keys := make([]string, 0, len(artifacts))
+	for k := range artifacts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var items []map[string]any
+	for _, k := range keys {
+		entry, ok := artifacts[k].(map[string]any)
+		if !ok {
+			r.fail("deployment-items", fmt.Sprintf("artifact %q is not a mapping", k), "")
+			continue
+		}
+		entry["__key"] = k
+		items = append(items, entry)
+	}
+	r.DeploymentItems = len(items)
+	return items
+}
