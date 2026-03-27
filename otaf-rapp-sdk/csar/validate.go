@@ -257,3 +257,89 @@ func checkAsd(r *Report, files map[string][]byte, asdPath string) []map[string]a
 	r.DeploymentItems = len(items)
 	return items
 }
+
+func checkDeploymentItems(r *Report, files map[string][]byte, items []map[string]any) {
+	referenced := map[string]bool{}
+
+	for _, item := range items {
+		key := str(item["__key"])
+		file := str(item["file"])
+
+		if file == "" {
+			r.fail("deployment-items", fmt.Sprintf("artifact %q has no file", key), "")
+			continue
+		}
+		if _, ok := files[file]; !ok {
+			r.fail("artifact-files",
+				fmt.Sprintf("artifact %q points at %s, which is not in the package", key, file),
+				"every artifact file is checked for existence during upload")
+			continue
+		}
+		referenced[file] = true
+
+		props, _ := item["properties"].(map[string]any)
+		if props == nil {
+			r.fail("deployment-items", fmt.Sprintf("artifact %q has no properties block", key), "")
+			continue
+		}
+
+		if got := str(props["artifact_type"]); got != ArtifactTypeHelm {
+			r.fail("deployment-items",
+				fmt.Sprintf("artifact %q has artifact_type %q", key, got),
+				fmt.Sprintf("only %q is uploaded to the chart repository; anything else is silently skipped", ArtifactTypeHelm))
+		}
+		if got := str(props["target_server"]); got != TargetServerChart {
+			r.warn("deployment-items",
+				fmt.Sprintf("artifact %q has target_server %q", key, got),
+				fmt.Sprintf("the ASD type definition only allows %q", TargetServerChart))
+		}
+		if str(props["target_server_uri"]) == "" {
+			r.fail("deployment-items",
+				fmt.Sprintf("artifact %q has no target_server_uri", key),
+				"this is the address the chart is POSTed to; an empty value makes the upload fail during priming")
+		}
+		if str(props["item_id"]) == "" {
+			r.warn("deployment-items", fmt.Sprintf("artifact %q has no item_id", key), "")
+		}
+	}
+
+	for name := range files {
+		if strings.HasPrefix(name, HelmDir+"/") && strings.HasSuffix(name, ".tgz") && !referenced[name] {
+			r.warn("artifact-files",
+				fmt.Sprintf("%s is in the package but no artifact refers to it", name),
+				"an unreferenced chart is never uploaded and never deployed")
+		}
+	}
+}
+
+// checkResourceNames guards the assumption the platform makes when it turns a
+// resource path into the identifier an rApp instance refers to: it slices the
+// name at the last dot, so a second dot silently truncates the identifier.
+func checkResourceNames(r *Report, files map[string][]byte) {
+	seen := map[string]string{}
+
+	for name := range files {
+		dir := path.Dir(name)
+		if !isResourceDir(dir) {
+			continue
+		}
+		base := path.Base(name)
+		r.Resources = append(r.Resources, name)
+
+		if strings.Count(base, ".") != 1 {
+			r.fail("resource-names",
+				fmt.Sprintf("%s must contain exactly one dot", name),
+				"the platform derives the resource identifier by cutting at the last dot, so extra dots corrupt it")
+			continue
+		}
+
+		id := dir + "/" + strings.TrimSuffix(base, path.Ext(base))
+		if prev, dup := seen[id]; dup {
+			r.fail("resource-names",
+				fmt.Sprintf("%s and %s resolve to the same resource identifier", prev, name),
+				"rename one of them")
+		}
+		seen[id] = name
+	}
+	sort.Strings(r.Resources)
+}
