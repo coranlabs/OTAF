@@ -81,3 +81,61 @@ func (r *Report) fail(rule, msg, hint string) {
 func (r *Report) warn(rule, msg, hint string) {
 	r.Findings = append(r.Findings, Finding{Rule: rule, Severity: SeverityWarn, Message: msg, Hint: hint})
 }
+
+// Validate checks a built package the way the platform does when it is
+// uploaded and primed. Every rule mirrors a check the platform performs, so
+// passing here means the package gets past onboarding.
+func Validate(csarPath string) (*Report, error) {
+	report := &Report{Package: path.Base(csarPath)}
+
+	if !strings.HasSuffix(csarPath, ".csar") {
+		report.fail("package-name",
+			"package file name must end with .csar",
+			"rename the file; the platform rejects the upload on the extension alone")
+	}
+
+	zr, err := zip.OpenReader(csarPath)
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", csarPath, err)
+	}
+	defer zr.Close()
+
+	files := map[string][]byte{}
+	for _, f := range zr.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, fmt.Errorf("read %s from package: %w", f.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			return nil, fmt.Errorf("read %s from package: %w", f.Name, err)
+		}
+		files[f.Name] = data
+	}
+
+	checkRequiredFiles(report, files)
+	asdPath := checkToscaMeta(report, files)
+	items := checkAsd(report, files, asdPath)
+	checkDeploymentItems(report, files, items)
+	checkResourceNames(report, files)
+	checkAcmInstances(report, files)
+	checkDmeInfoTypes(report, files)
+	checkSmeProviders(report, files)
+	checkSmeServiceApis(report, files)
+
+	return report, nil
+}
+
+func checkRequiredFiles(r *Report, files map[string][]byte) {
+	for _, required := range []string{ToscaMetaPath, AcmDefinition} {
+		if _, ok := files[required]; !ok {
+			r.fail("required-files",
+				fmt.Sprintf("package is missing %s", required),
+				"the platform checks for this path before it reads anything else")
+		}
+	}
+}
