@@ -77,3 +77,7 @@ func (r *Report) filter(s Severity) []Finding {
 func (r *Report) fail(rule, msg, hint string) {
 	r.Findings = append(r.Findings, Finding{Rule: rule, Severity: SeverityError, Message: msg, Hint: hint})
 }
+
+func (r *Report) warn(rule, msg, hint string) {
+	r.Findings = append(r.Findings, Finding{Rule: rule, Severity: SeverityWarn, Message: msg, Hint: hint})
+}
