@@ -403,3 +403,93 @@ func checkAcmInstances(r *Report, files map[string][]byte) {
 		}
 	}
 }
+
+// checkDmeInfoTypes catches the mismatch that produces no error at all.
+//
+// The platform registers an information type under its file's base name, and
+// the id a consumer or producer asks for has to equal that exactly. When it
+// does not, nothing is rejected: the DME participant retries forever, the
+// instance sits in DEPLOYING, and because the DME element deploys first the
+// Helm install never even starts. Nothing in the logs points at the spelling.
+func checkDmeInfoTypes(r *Report, files map[string][]byte) {
+	consumerTypes := basenamesIn(files, DmeConsumerTypesDir)
+	producerTypes := basenamesIn(files, DmeProducerTypesDir)
+
+	for name, data := range files {
+		switch path.Dir(name) {
+		case DmeConsumersDir:
+			var doc struct {
+				InfoTypeID string `json:"info_type_id"`
+			}
+			if err := json.Unmarshal(data, &doc); err != nil {
+				r.fail("dme-info-types", fmt.Sprintf("%s is not valid JSON: %v", name, err), "")
+				continue
+			}
+			if doc.InfoTypeID == "" {
+				r.fail("dme-info-types",
+					fmt.Sprintf("%s has no info_type_id", name),
+					"the consumer has to name the information type it wants")
+				continue
+			}
+			if !consumerTypes[doc.InfoTypeID] {
+				r.fail("dme-info-types",
+					fmt.Sprintf("%s asks for information type %q, but %s holds %s",
+						name, doc.InfoTypeID, DmeConsumerTypesDir, listOf(consumerTypes)),
+					"the id must equal the type file's base name exactly; a mismatch is never "+
+						"reported, the instance simply stays in DEPLOYING for ever")
+			}
+
+		case DmeProducersDir:
+			var doc struct {
+				SupportedInfoTypes []string `json:"supported_info_types"`
+			}
+			if err := json.Unmarshal(data, &doc); err != nil {
+				r.fail("dme-info-types", fmt.Sprintf("%s is not valid JSON: %v", name, err), "")
+				continue
+			}
+			for _, id := range doc.SupportedInfoTypes {
+				if !producerTypes[id] {
+					r.fail("dme-info-types",
+						fmt.Sprintf("%s produces information type %q, but %s holds %s",
+							name, id, DmeProducerTypesDir, listOf(producerTypes)),
+						"the id must equal the type file's base name exactly")
+				}
+			}
+		}
+	}
+}
+
+// checkSmeProviders catches a comma the platform turns into a Kong tag.
+func checkSmeProviders(r *Report, files map[string][]byte) {
+	for name, data := range files {
+		if path.Dir(name) != SmeProvidersDir {
+			continue
+		}
+
+		var doc struct {
+			DomainInfo string `json:"apiProvDomInfo"`
+			Funcs      []struct {
+				Info string `json:"apiProvFuncInfo"`
+				Role string `json:"apiProvFuncRole"`
+			} `json:"apiProvFuncs"`
+		}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			r.fail("sme-provider", fmt.Sprintf("%s is not valid JSON: %v", name, err), "")
+			continue
+		}
+
+		for _, fn := range doc.Funcs {
+			if strings.Contains(fn.Info, ",") {
+				r.fail("sme-provider",
+					fmt.Sprintf("%s has a comma in apiProvFuncInfo %q", name, fn.Info),
+					"the gateway takes its tags from this text and refuses a comma, so the "+
+						"deployment fails with 502 \"Unable to deploy SME\"")
+			}
+		}
+		if strings.Contains(doc.DomainInfo, ",") {
+			r.warn("sme-provider",
+				fmt.Sprintf("%s has a comma in apiProvDomInfo %q", name, doc.DomainInfo),
+				"commas in provider text have been seen to break gateway tag creation")
+		}
+	}
+}
