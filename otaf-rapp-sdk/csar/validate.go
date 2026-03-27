@@ -343,3 +343,63 @@ func checkResourceNames(r *Report, files map[string][]byte) {
 	}
 	sort.Strings(r.Resources)
 }
+
+func isResourceDir(dir string) bool {
+	for _, d := range ResourceDirs {
+		if dir == d {
+			return true
+		}
+	}
+	return false
+}
+
+// checkAcmInstances confirms every chart an automation composition instance
+// asks for is actually shipped, since a mismatch only shows up as a failed
+// deployment long after onboarding succeeded.
+func checkAcmInstances(r *Report, files map[string][]byte) {
+	shipped := map[string]bool{}
+	for name := range files {
+		if strings.HasPrefix(name, HelmDir+"/") && strings.HasSuffix(name, ".tgz") {
+			shipped[strings.TrimSuffix(path.Base(name), ".tgz")] = true
+		}
+	}
+	if len(shipped) == 0 {
+		return
+	}
+
+	for name, data := range files {
+		if path.Dir(name) != AcmInstancesDir {
+			continue
+		}
+
+		var doc struct {
+			Elements map[string]struct {
+				Properties struct {
+					Chart struct {
+						ChartID struct {
+							Name    string `json:"name"`
+							Version string `json:"version"`
+						} `json:"chartId"`
+					} `json:"chart"`
+				} `json:"properties"`
+			} `json:"elements"`
+		}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			r.fail("acm-instance", fmt.Sprintf("%s is not valid JSON: %v", name, err), "")
+			continue
+		}
+
+		for id, el := range doc.Elements {
+			chart := el.Properties.Chart.ChartID
+			if chart.Name == "" || chart.Version == "" {
+				continue
+			}
+			want := chart.Name + "-" + chart.Version
+			if !shipped[want] {
+				r.fail("acm-instance",
+					fmt.Sprintf("%s element %s asks for chart %s, which is not in the package", name, id, want),
+					"the chart name and version here must match a packaged archive exactly")
+			}
+		}
+	}
+}
