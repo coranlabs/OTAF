@@ -493,3 +493,58 @@ func checkSmeProviders(r *Report, files map[string][]byte) {
 		}
 	}
 }
+
+// checkSmeServiceApis catches URIs the gateway cannot build a route from.
+func checkSmeServiceApis(r *Report, files map[string][]byte) {
+	for name, data := range files {
+		if path.Dir(name) != SmeServiceApisDir {
+			continue
+		}
+
+		var doc struct {
+			AefProfiles []struct {
+				Versions []struct {
+					Resources []struct {
+						ResourceName string `json:"resourceName"`
+						URI          string `json:"uri"`
+					} `json:"resources"`
+				} `json:"versions"`
+			} `json:"aefProfiles"`
+		}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			r.fail("sme-service-api", fmt.Sprintf("%s is not valid JSON: %v", name, err), "")
+			continue
+		}
+
+		for _, profile := range doc.AefProfiles {
+			for _, version := range profile.Versions {
+				for _, resource := range version.Resources {
+					switch {
+					case strings.TrimSpace(resource.URI) == "/":
+						r.fail("sme-service-api",
+							fmt.Sprintf("%s exposes resource %q at %q", name, resource.ResourceName, resource.URI),
+							"the gateway cannot create a route for a bare slash; publish the "+
+								"endpoints individually")
+					case strings.ContainsAny(resource.URI, "{}"):
+						r.fail("sme-service-api",
+							fmt.Sprintf("%s exposes resource %q at %q", name, resource.ResourceName, resource.URI),
+							"a templated path parameter is not a route the gateway can build; "+
+								"publish the fixed prefix instead")
+					}
+				}
+			}
+		}
+	}
+}
+
+func basenamesIn(files map[string][]byte, dir string) map[string]bool {
+	out := map[string]bool{}
+	for name := range files {
+		if path.Dir(name) != dir {
+			continue
+		}
+		base := path.Base(name)
+		out[strings.TrimSuffix(base, path.Ext(base))] = true
+	}
+	return out
+}
