@@ -560,3 +560,18 @@ func listOf(set map[string]bool) string {
 	sort.Strings(out)
 	return strings.Join(out, ", ")
 }
+
+func dig(node any, keys ...string) any {
+	cur := node
+	for _, k := range keys {
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil
+		}
+		cur, ok = m[k]
+		if !ok {
+			return nil
+		}
+	}
+	return cur
+}
