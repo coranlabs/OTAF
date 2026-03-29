@@ -548,3 +548,15 @@ func basenamesIn(files map[string][]byte, dir string) map[string]bool {
 	}
 	return out
 }
+
+func listOf(set map[string]bool) string {
+	if len(set) == 0 {
+		return "nothing"
+	}
+	out := make([]string, 0, len(set))
+	for name := range set {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return strings.Join(out, ", ")
+}
