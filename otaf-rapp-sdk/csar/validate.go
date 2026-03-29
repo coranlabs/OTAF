@@ -575,3 +575,14 @@ func dig(node any, keys ...string) any {
 	}
 	return cur
 }
+
+func str(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case nil:
+		return ""
+	default:
+		return fmt.Sprint(t)
+	}
+}
