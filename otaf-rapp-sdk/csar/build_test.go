@@ -279,3 +279,48 @@ func TestSplitChartFile(t *testing.T) {
 		}
 	}
 }
+
+func TestGeneratedAsdKeepsDeploymentItemsInArtifacts(t *testing.T) {
+	spec := buildableSpec(t)
+	asd := renderAsd(spec, []deployItem{{
+		Key:             "demo",
+		File:            HelmDir + "/demo-0.1.0.tgz",
+		ItemID:          1,
+		TargetServerURI: DefaultChartMuseum,
+	}})
+
+	if !strings.Contains(asd, "      artifacts:") {
+		t.Error("generated ASD must declare an artifacts block")
+	}
+	if strings.Contains(asd, "deploymentItems") {
+		t.Error("generated ASD must not use the properties.deploymentItems form, which is never read")
+	}
+}
+
+// Left unquoted, YAML reads a version such as 1.10 as the number 1.1 and the
+// package ends up declaring a version nobody wrote.
+func TestVersionsSurviveYamlRoundTrip(t *testing.T) {
+	spec := buildableSpec(t)
+	spec.Version = "1.10"
+
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(renderAsd(spec, nil)), &doc); err != nil {
+		t.Fatal(err)
+	}
+
+	props, _ := dig(doc, "topology_template", "node_templates", "applicationServiceDescriptor", "properties").(map[string]any)
+	if props == nil {
+		t.Fatal("generated ASD has no properties block")
+	}
+
+	for _, key := range []string{"descriptor_version", "application_version", "schema_version"} {
+		got, ok := props[key].(string)
+		if !ok {
+			t.Errorf("%s came back as %T, want a string", key, props[key])
+			continue
+		}
+		if key != "schema_version" && got != "1.10" {
+			t.Errorf("%s = %q, want 1.10", key, got)
+		}
+	}
+}
