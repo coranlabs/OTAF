@@ -90,3 +90,46 @@ func TestBuildProducesAValidPackage(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildRequiresACompositionDefinition(t *testing.T) {
+	spec := buildableSpec(t)
+	if err := os.Remove(filepath.Join(spec.ResourceDir, "Files", "Acm", "definition", "compositions.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Build(spec); err == nil {
+		t.Fatal("expected a build failure when the composition definition is absent")
+	}
+}
+
+func TestBuildRejectsDuplicateChartNames(t *testing.T) {
+	spec := buildableSpec(t)
+	spec.Charts = append(spec.Charts, spec.Charts[0])
+
+	if _, err := Build(spec); err == nil {
+		t.Fatal("expected a build failure when two charts package to the same name")
+	}
+}
+
+func TestSpecValidation(t *testing.T) {
+	cases := map[string]func(*Spec){
+		"no name":            func(s *Spec) { s.Name = "" },
+		"no version":         func(s *Spec) { s.Version = "" },
+		"no provider":        func(s *Spec) { s.Provider = "" },
+		"bad descriptor":     func(s *Spec) { s.DescriptorID = "not-a-uuid" },
+		"identical uuids":    func(s *Spec) { s.DescriptorInvariantID = s.DescriptorID },
+		"no charts":          func(s *Spec) { s.Charts = nil },
+		"chart without uri":  func(s *Spec) { s.Charts[0].TargetServerURI = "" },
+		"chart without path": func(s *Spec) { s.Charts[0].Path = "" },
+	}
+
+	for name, mutate := range cases {
+		t.Run(name, func(t *testing.T) {
+			spec := buildableSpec(t)
+			mutate(spec)
+			if err := spec.Validate(); err == nil {
+				t.Errorf("%s should be rejected", name)
+			}
+		})
+	}
+}
