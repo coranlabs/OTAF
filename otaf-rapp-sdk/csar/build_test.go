@@ -157,3 +157,59 @@ func TestEveryBuildMintsFreshElementIDs(t *testing.T) {
 		}
 	}
 }
+
+// Only the identifiers move: the element still has to point at its definition.
+func TestRefreshingIDsKeepsEverythingElse(t *testing.T) {
+	spec := buildableSpec(t)
+	if _, err := Build(spec); err != nil {
+		t.Fatal(err)
+	}
+
+	body := fileFromPackage(t, filepath.Join(spec.OutputDir, spec.CsarName()),
+		AcmInstancesDir+"/demo-instance.json")
+
+	var doc struct {
+		Name     string `json:"name"`
+		Elements map[string]struct {
+			ID         string `json:"id"`
+			Properties struct {
+				Chart struct {
+					ChartID struct {
+						Name    string `json:"name"`
+						Version string `json:"version"`
+					} `json:"chartId"`
+				} `json:"chart"`
+			} `json:"properties"`
+		} `json:"elements"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		t.Fatal(err)
+	}
+
+	if doc.Name != "demo-instance" {
+		t.Errorf("instance name = %q, want it untouched", doc.Name)
+	}
+	for key, element := range doc.Elements {
+		// The key and the inner id are the same identifier written twice, and
+		// the platform reads both.
+		if element.ID != key {
+			t.Errorf("element key %s carries id %s; they must agree", key, element.ID)
+		}
+		chart := element.Properties.Chart.ChartID
+		if chart.Name != "demo" || chart.Version != "0.1.0" {
+			t.Errorf("chart reference was disturbed: %+v", chart)
+		}
+	}
+}
+
+func TestInstanceWithoutElementsIsLeftAlone(t *testing.T) {
+	original := []byte(`{"name":"x","elements":{}}`)
+
+	got, err := refreshElementIDs(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Errorf("got %s, want the file unchanged", got)
+	}
+}
