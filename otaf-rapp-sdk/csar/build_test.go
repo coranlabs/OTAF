@@ -213,3 +213,69 @@ func TestInstanceWithoutElementsIsLeftAlone(t *testing.T) {
 		t.Errorf("got %s, want the file unchanged", got)
 	}
 }
+
+func elementIDsFromPackage(t *testing.T, spec *Spec) map[string]bool {
+	t.Helper()
+
+	if _, err := Build(spec); err != nil {
+		t.Fatal(err)
+	}
+	body := fileFromPackage(t, filepath.Join(spec.OutputDir, spec.CsarName()),
+		AcmInstancesDir+"/demo-instance.json")
+
+	var doc struct {
+		Elements map[string]json.RawMessage `json:"elements"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		t.Fatal(err)
+	}
+
+	out := map[string]bool{}
+	for id := range doc.Elements {
+		out[id] = true
+	}
+	return out
+}
+
+func fileFromPackage(t *testing.T, csarPath, want string) []byte {
+	t.Helper()
+
+	zr, err := zip.OpenReader(csarPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zr.Close()
+
+	for _, f := range zr.File {
+		if f.Name != want {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rc.Close()
+		body, err := io.ReadAll(rc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return body
+	}
+	t.Fatalf("%s is not in the package", want)
+	return nil
+}
+
+func TestSplitChartFile(t *testing.T) {
+	cases := map[string][2]string{
+		"demo-0.1.0.tgz":                    {"demo", "0.1.0"},
+		"cell-watch-1.10.tgz":               {"cell-watch", "1.10"},
+		"a-b-c-2.0.0-rc1.tgz":               {"a-b-c", "2.0.0-rc1"},
+		"Artifacts/Deployment/HELM/x-1.tgz": {"x", "1"},
+	}
+	for file, want := range cases {
+		name, version := splitChartFile(file)
+		if name != want[0] || version != want[1] {
+			t.Errorf("split(%q) = %q, %q; want %q, %q", file, name, version, want[0], want[1])
+		}
+	}
+}
