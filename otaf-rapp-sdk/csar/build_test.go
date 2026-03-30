@@ -133,3 +133,27 @@ func TestSpecValidation(t *testing.T) {
 		})
 	}
 }
+
+// The platform remembers element ids and refuses one it has seen before, so a
+// package that shipped the same id every build could only ever be onboarded
+// once per environment.
+func TestEveryBuildMintsFreshElementIDs(t *testing.T) {
+	spec := buildableSpec(t)
+
+	first := elementIDsFromPackage(t, spec)
+	if len(first) != 1 {
+		t.Fatalf("elements = %d, want 1", len(first))
+	}
+
+	second := elementIDsFromPackage(t, spec)
+	for id := range first {
+		if second[id] {
+			t.Errorf("element id %s was reused; the second onboard would be refused", id)
+		}
+	}
+	for id := range second {
+		if !isUUID(id) {
+			t.Errorf("element id %q is not a UUID", id)
+		}
+	}
+}
