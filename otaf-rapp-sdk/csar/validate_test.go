@@ -121,3 +121,23 @@ func summarise(r *Report) string {
 	}
 	return strings.Join(parts, ", ")
 }
+
+func TestValidPackagePasses(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", nil))
+	if !r.OK() {
+		t.Fatalf("a well-formed package should pass, got: %s", summarise(r))
+	}
+	if r.DeploymentItems != 1 {
+		t.Errorf("deployment items = %d, want 1", r.DeploymentItems)
+	}
+	if r.ApplicationName != "demo" {
+		t.Errorf("application name = %q, want demo", r.ApplicationName)
+	}
+}
+
+func TestExtensionIsChecked(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.zip", nil))
+	if !hasRule(r, "package-name", SeverityError) {
+		t.Errorf("expected a package-name error, got: %s", summarise(r))
+	}
+}
