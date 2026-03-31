@@ -212,3 +212,10 @@ func TestMissingArtifactsIsRejected(t *testing.T) {
 		t.Errorf("expected a deployment-items error, got: %s", summarise(r))
 	}
 }
+
+func TestArtifactFileMustExist(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{fixtureChart: nil}))
+	if !hasRule(r, "artifact-files", SeverityError) {
+		t.Errorf("expected an artifact-files error, got: %s", summarise(r))
+	}
+}
