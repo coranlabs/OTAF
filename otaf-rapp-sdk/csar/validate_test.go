@@ -229,3 +229,25 @@ func TestTargetServerUriIsRequired(t *testing.T) {
 		t.Errorf("expected a deployment-items error, got: %s", summarise(r))
 	}
 }
+
+// The platform cuts a resource name at its last dot, so a second dot silently
+// truncates the identifier an rApp instance has to refer to.
+func TestResourceNamesRejectExtraDots(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		AcmInstancesDir + "/demo.v2.json": []byte(acmInstance),
+	}))
+	if !hasRule(r, "resource-names", SeverityError) {
+		t.Errorf("expected a resource-names error, got: %s", summarise(r))
+	}
+}
+
+func TestAcmInstanceChartMustBeShipped(t *testing.T) {
+	mismatch := strings.Replace(acmInstance, `"version": "0.1.0"`, `"version": "9.9.9"`, 1)
+
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		AcmInstancesDir + "/demo-instance.json": []byte(mismatch),
+	}))
+	if !hasRule(r, "acm-instance", SeverityError) {
+		t.Errorf("expected an acm-instance error, got: %s", summarise(r))
+	}
+}
