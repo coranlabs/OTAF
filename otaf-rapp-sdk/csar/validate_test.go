@@ -26,6 +26,24 @@ const (
 		"Entry-Definitions: " + AsdPath + "\n"
 )
 
+func fixtureAsd(artifacts string) string {
+	return `tosca_definitions_version: tosca_simple_yaml_1_2
+description: demo
+topology_template:
+  node_templates:
+    applicationServiceDescriptor:
+      type: tosca.nodes.asd
+      properties:
+        descriptor_id: 0f9a6b2c-1d3e-4f50-8a1b-2c3d4e5f6071
+        descriptor_invariant_id: 1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9
+        descriptor_version: "0.1.0"
+        schema_version: "2.0"
+        provider: test
+        application_name: demo
+        application_version: "0.1.0"
+` + artifacts
+}
+
 const goodArtifacts = `      artifacts:
         demo:
           type: tosca.artifacts.asd.deploymentItem
@@ -47,3 +65,33 @@ const acmInstance = `{
     }
   }
 }`
+
+func baseline() map[string][]byte {
+	return map[string][]byte{
+		ToscaMetaPath:                           []byte(fixtureMeta),
+		AsdPath:                                 []byte(fixtureAsd(goodArtifacts)),
+		AcmDefinition:                           []byte(`{"topology_template":{}}`),
+		AcmInstancesDir + "/demo-instance.json": []byte(acmInstance),
+		fixtureChart:                            []byte("not really a chart"),
+	}
+}
+
+// fixture writes a package, applying mutations first. A nil value deletes.
+func fixture(t *testing.T, name string, mutate map[string][]byte) string {
+	t.Helper()
+
+	contents := baseline()
+	for k, v := range mutate {
+		if v == nil {
+			delete(contents, k)
+			continue
+		}
+		contents[k] = v
+	}
+
+	path := filepath.Join(t.TempDir(), name)
+	if err := writeZip(path, contents); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
