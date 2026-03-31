@@ -95,3 +95,29 @@ func fixture(t *testing.T, name string, mutate map[string][]byte) string {
 	}
 	return path
 }
+
+func validate(t *testing.T, path string) *Report {
+	t.Helper()
+	r, err := Validate(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func hasRule(r *Report, rule string, severity Severity) bool {
+	for _, f := range r.Findings {
+		if f.Rule == rule && f.Severity == severity {
+			return true
+		}
+	}
+	return false
+}
+
+func summarise(r *Report) string {
+	var parts []string
+	for _, f := range r.Findings {
+		parts = append(parts, string(f.Severity)+":"+f.Rule)
+	}
+	return strings.Join(parts, ", ")
+}
