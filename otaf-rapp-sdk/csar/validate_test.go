@@ -141,3 +141,12 @@ func TestExtensionIsChecked(t *testing.T) {
 		t.Errorf("expected a package-name error, got: %s", summarise(r))
 	}
 }
+
+func TestRequiredFilesAreChecked(t *testing.T) {
+	for _, missing := range []string{AcmDefinition, ToscaMetaPath} {
+		r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{missing: nil}))
+		if !hasRule(r, "required-files", SeverityError) {
+			t.Errorf("dropping %s should raise required-files, got: %s", missing, summarise(r))
+		}
+	}
+}
