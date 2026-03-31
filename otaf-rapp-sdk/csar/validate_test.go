@@ -174,3 +174,41 @@ func TestDescriptorIdentifiersAreRequired(t *testing.T) {
 		t.Errorf("expected asd-descriptor error, got: %s", summarise(r))
 	}
 }
+
+func TestNonUuidDescriptorWarns(t *testing.T) {
+	legacy := strings.Replace(fixtureAsd(goodArtifacts),
+		"descriptor_id: 0f9a6b2c-1d3e-4f50-8a1b-2c3d4e5f6071", "descriptor_id: demo-rapp-v1", 1)
+
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{AsdPath: []byte(legacy)}))
+	if !hasRule(r, "asd-descriptor", SeverityWarn) {
+		t.Errorf("expected an asd-descriptor warning, got: %s", summarise(r))
+	}
+	if !r.OK() {
+		t.Error("a non-UUID identifier is a warning, not a rejection")
+	}
+}
+
+// Deployment items declared in the properties block are not read, and the
+// resulting empty list stops the package being primed.
+func TestDeploymentItemsInPropertiesAreRejected(t *testing.T) {
+	legacy := fixtureAsd(`        deploymentItems:
+          - artifactId: demo
+            artifactType: HELM
+            artifactLocation: ` + fixtureChart + `
+`)
+
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{AsdPath: []byte(legacy)}))
+	if !hasRule(r, "deployment-items", SeverityError) {
+		t.Errorf("expected a deployment-items error, got: %s", summarise(r))
+	}
+	if r.DeploymentItems != 0 {
+		t.Errorf("deployment items = %d, want 0", r.DeploymentItems)
+	}
+}
+
+func TestMissingArtifactsIsRejected(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{AsdPath: []byte(fixtureAsd(""))}))
+	if !hasRule(r, "deployment-items", SeverityError) {
+		t.Errorf("expected a deployment-items error, got: %s", summarise(r))
+	}
+}
