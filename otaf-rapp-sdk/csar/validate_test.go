@@ -150,3 +150,27 @@ func TestRequiredFilesAreChecked(t *testing.T) {
 		}
 	}
 }
+
+func TestEntryDefinitionsMustResolve(t *testing.T) {
+	noEntry := "TOSCA-Meta-File-Version: 1.0\nCSAR-Version: 1.0\nCreated-By: test\n"
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{ToscaMetaPath: []byte(noEntry)}))
+	if !hasRule(r, "tosca-entry-definitions", SeverityError) {
+		t.Errorf("expected tosca-entry-definitions error, got: %s", summarise(r))
+	}
+
+	dangling := fixtureMeta[:strings.Index(fixtureMeta, "Entry-Definitions:")] + "Entry-Definitions: Definitions/absent.yaml\n"
+	r = validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{ToscaMetaPath: []byte(dangling)}))
+	if !hasRule(r, "tosca-entry-definitions", SeverityError) {
+		t.Errorf("expected tosca-entry-definitions error for a dangling pointer, got: %s", summarise(r))
+	}
+}
+
+func TestDescriptorIdentifiersAreRequired(t *testing.T) {
+	blank := strings.Replace(fixtureAsd(goodArtifacts),
+		"descriptor_id: 0f9a6b2c-1d3e-4f50-8a1b-2c3d4e5f6071", `descriptor_id: ""`, 1)
+
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{AsdPath: []byte(blank)}))
+	if !hasRule(r, "asd-descriptor", SeverityError) {
+		t.Errorf("expected asd-descriptor error, got: %s", summarise(r))
+	}
+}
