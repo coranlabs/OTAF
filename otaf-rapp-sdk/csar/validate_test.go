@@ -219,3 +219,13 @@ func TestArtifactFileMustExist(t *testing.T) {
 		t.Errorf("expected an artifact-files error, got: %s", summarise(r))
 	}
 }
+
+func TestTargetServerUriIsRequired(t *testing.T) {
+	blank := strings.Replace(fixtureAsd(goodArtifacts),
+		`target_server_uri: "http://chartmuseum.nonrtric:8080/api/charts"`, `target_server_uri: ""`, 1)
+
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{AsdPath: []byte(blank)}))
+	if !hasRule(r, "deployment-items", SeverityError) {
+		t.Errorf("expected a deployment-items error, got: %s", summarise(r))
+	}
+}
