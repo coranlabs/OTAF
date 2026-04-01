@@ -251,3 +251,17 @@ func TestAcmInstanceChartMustBeShipped(t *testing.T) {
 		t.Errorf("expected an acm-instance error, got: %s", summarise(r))
 	}
 }
+
+// The mismatch that reports nothing: the platform registers a type under its
+// file's base name, and a job asking for anything else simply never starts.
+func TestDmeConsumerMustNameAnExistingType(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		DmeConsumerTypesDir + "/ves-notify-file-ready.json": []byte(`{"info_job_data_schema":{}}`),
+		DmeConsumersDir + "/my-consumer.json": []byte(
+			`{"info_type_id":"VES_NOTIFY_FILE_READY","job_owner":"me","job_result_uri":"http://me/data","job_definition":{}}`),
+	}))
+
+	if !hasRule(r, "dme-info-types", SeverityError) {
+		t.Errorf("expected a dme-info-types error, got: %s", summarise(r))
+	}
+}
