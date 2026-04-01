@@ -323,3 +323,26 @@ func TestProviderInfoWithoutCommasPasses(t *testing.T) {
 		t.Errorf("plain provider text should pass, got: %s", summarise(r))
 	}
 }
+
+func TestUnroutableServiceApiUrisAreRejected(t *testing.T) {
+	cases := map[string]string{
+		"bare slash":     "/",
+		"path parameter": "/cells/{cellId}",
+	}
+
+	for name, uri := range cases {
+		t.Run(name, func(t *testing.T) {
+			body := `{"apiName":"demo","aefProfiles":[{"aefId":"a","versions":[{"apiVersion":"v1",` +
+				`"resources":[{"resourceName":"r","commType":"REQUEST_RESPONSE","uri":"` + uri +
+				`","operations":["GET"]}]}]}]}`
+
+			r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+				SmeServiceApisDir + "/demo-api.json": []byte(body),
+			}))
+
+			if !hasRule(r, "sme-service-api", SeverityError) {
+				t.Errorf("expected an sme-service-api error, got: %s", summarise(r))
+			}
+		})
+	}
+}
