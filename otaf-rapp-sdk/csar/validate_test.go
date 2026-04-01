@@ -289,3 +289,37 @@ func TestDmeProducerMustNameAnExistingType(t *testing.T) {
 		t.Errorf("expected a dme-info-types error for the unknown type, got: %s", summarise(r))
 	}
 }
+
+func TestDmeConsumerWithoutATypeIsRejected(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		DmeConsumersDir + "/my-consumer.json": []byte(`{"job_owner":"me"}`),
+	}))
+
+	if !hasRule(r, "dme-info-types", SeverityError) {
+		t.Errorf("expected a dme-info-types error, got: %s", summarise(r))
+	}
+}
+
+// The gateway derives its tags from this text and refuses a comma, which
+// surfaces only as a 502 when the exposure layer is deployed.
+func TestCommaInProviderInfoIsRejected(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		SmeProvidersDir + "/demo-provider.json": []byte(
+			`{"apiProvDomInfo":"d","apiProvFuncs":[{"apiProvFuncInfo":"rApp as AEF, exposing state","apiProvFuncRole":"AEF"}]}`),
+	}))
+
+	if !hasRule(r, "sme-provider", SeverityError) {
+		t.Errorf("expected an sme-provider error, got: %s", summarise(r))
+	}
+}
+
+func TestProviderInfoWithoutCommasPasses(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		SmeProvidersDir + "/demo-provider.json": []byte(
+			`{"apiProvDomInfo":"demo domain","apiProvFuncs":[{"apiProvFuncInfo":"rApp as AEF","apiProvFuncRole":"AEF"}]}`),
+	}))
+
+	if !r.OK() {
+		t.Errorf("plain provider text should pass, got: %s", summarise(r))
+	}
+}
