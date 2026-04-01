@@ -265,3 +265,27 @@ func TestDmeConsumerMustNameAnExistingType(t *testing.T) {
 		t.Errorf("expected a dme-info-types error, got: %s", summarise(r))
 	}
 }
+
+func TestDmeConsumerMatchingTheBasenamePasses(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		DmeConsumerTypesDir + "/ves-notify-file-ready.json": []byte(`{"info_job_data_schema":{}}`),
+		DmeConsumersDir + "/my-consumer.json": []byte(
+			`{"info_type_id":"ves-notify-file-ready","job_owner":"me","job_result_uri":"http://me/data","job_definition":{}}`),
+	}))
+
+	if !r.OK() {
+		t.Errorf("a matching id should pass, got: %s", summarise(r))
+	}
+}
+
+func TestDmeProducerMustNameAnExistingType(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		DmeProducerTypesDir + "/cell-state.json": []byte(`{"info_job_data_schema":{}}`),
+		DmeProducersDir + "/my-producer.json": []byte(
+			`{"info_producer_id":"p","supported_info_types":["cell-state","typo-state"]}`),
+	}))
+
+	if !hasRule(r, "dme-info-types", SeverityError) {
+		t.Errorf("expected a dme-info-types error for the unknown type, got: %s", summarise(r))
+	}
+}
