@@ -346,3 +346,26 @@ func TestUnroutableServiceApiUrisAreRejected(t *testing.T) {
 		})
 	}
 }
+
+func TestOrdinaryServiceApiUriPasses(t *testing.T) {
+	body := `{"apiName":"demo","aefProfiles":[{"aefId":"a","versions":[{"apiVersion":"v1",` +
+		`"resources":[{"resourceName":"observations","commType":"REQUEST_RESPONSE",` +
+		`"uri":"/observations","operations":["GET"]}]}]}]}`
+
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		SmeServiceApisDir + "/demo-api.json": []byte(body),
+	}))
+
+	if !r.OK() {
+		t.Errorf("an ordinary path should pass, got: %s", summarise(r))
+	}
+}
+
+func TestUnreferencedChartWarns(t *testing.T) {
+	r := validate(t, fixture(t, "demo-0.1.0.csar", map[string][]byte{
+		HelmDir + "/spare-1.0.0.tgz": []byte("orphan"),
+	}))
+	if !hasRule(r, "artifact-files", SeverityWarn) {
+		t.Errorf("expected an artifact-files warning, got: %s", summarise(r))
+	}
+}
