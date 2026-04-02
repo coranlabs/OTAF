@@ -222,3 +222,58 @@ type Write struct {
 	Path   string
 	Body   string
 }
+
+// NewController returns a fake and an SDNR client wired to it.
+func NewController(t testing.TB) (*sdnr.Client, *Controller) {
+	t.Helper()
+
+	f := &Controller{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := new(strings.Builder)
+		if r.Body != nil {
+			buf := make([]byte, r.ContentLength)
+			if r.ContentLength > 0 {
+				_, _ = r.Body.Read(buf)
+				body.Write(buf)
+			}
+		}
+
+		f.mu.Lock()
+		f.writes = append(f.writes, Write{Method: r.Method, Path: r.URL.Path, Body: body.String()})
+		reject := f.rejects
+		f.mu.Unlock()
+
+		if reject {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := sdnr.New(sdnr.Config{
+		Endpoint: srv.URL,
+		NodeID:   "test-node",
+		Username: "test",
+	}, Logger())
+	if err != nil {
+		t.Fatalf("rapptest: could not build the controller client: %v", err)
+	}
+	return client, f
+}
+
+// Writes returns every request the rApp made, in order.
+func (f *Controller) Writes() []Write {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]Write, len(f.writes))
+	copy(out, f.writes)
+	return out
+}
+
+// RejectWrites makes the controller refuse, so error handling can be tested.
+func (f *Controller) RejectWrites(on bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rejects = on
+}
