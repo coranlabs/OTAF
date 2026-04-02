@@ -29,4 +29,20 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/r1"
 )
 
+func Logger() *logrus.Logger {
+	l := logrus.New()
+	l.SetOutput(discard{})
+	l.SetLevel(logrus.PanicLevel)
+	return l
+}
+
+// VerboseLogger prints, for when a test is being debugged.
+func VerboseLogger() *logrus.Logger {
+	l := logrus.New()
+	l.SetLevel(logrus.DebugLevel)
+	return l
+}
+
 type discard struct{}
+
+func (discard) Write(p []byte) (int, error) { return len(p), nil }
