@@ -75,3 +75,11 @@ func encode(t testing.TB, payload any) []byte {
 		return body
 	}
 }
+
+// Harness drives one handler the way the pipeline does, without goroutines or
+// timing, so assertions run immediately after the call returns.
+type Harness struct {
+	t       testing.TB
+	handler ingest.Handler
+	ctx     context.Context
+}
