@@ -46,3 +46,32 @@ func VerboseLogger() *logrus.Logger {
 type discard struct{}
 
 func (discard) Write(p []byte) (int, error) { return len(p), nil }
+
+// Message builds an ingest message the way a source would. A []byte payload is
+// passed through; anything else is marshalled to JSON.
+func Message(t testing.TB, source string, payload any) ingest.Message {
+	t.Helper()
+	return ingest.Message{
+		Source:   source,
+		Payload:  encode(t, payload),
+		Received: time.Now(),
+	}
+}
+
+func encode(t testing.TB, payload any) []byte {
+	t.Helper()
+	switch v := payload.(type) {
+	case nil:
+		return nil
+	case []byte:
+		return v
+	case string:
+		return []byte(v)
+	default:
+		body, err := json.Marshal(v)
+		if err != nil {
+			t.Fatalf("rapptest: could not encode payload: %v", err)
+		}
+		return body
+	}
+}
