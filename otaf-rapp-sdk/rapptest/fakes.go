@@ -277,3 +277,50 @@ func (f *Controller) RejectWrites(on bool) {
 	defer f.mu.Unlock()
 	f.rejects = on
 }
+
+// TimeSeries is a stand-in for the store, capturing the points an rApp wrote.
+type TimeSeries struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+// NewTimeSeries returns a fake and a writer wired to it. Call the writer's
+// Flush to send what is queued without waiting for the batch timer.
+func NewTimeSeries(t testing.TB) (*influx.Writer, *TimeSeries) {
+	t.Helper()
+
+	f := &TimeSeries{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, r.ContentLength)
+		if r.ContentLength > 0 {
+			_, _ = r.Body.Read(buf)
+		}
+
+		f.mu.Lock()
+		for _, line := range strings.Split(strings.TrimSpace(string(buf)), "\n") {
+			if line != "" {
+				f.lines = append(f.lines, line)
+			}
+		}
+		f.mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+
+	writer, err := influx.New(influx.Config{
+		URL: srv.URL, Org: "test", Bucket: "test", Token: "test",
+	}, Logger())
+	if err != nil {
+		t.Fatalf("rapptest: could not build the time-series writer: %v", err)
+	}
+	return writer, f
+}
+
+// Lines returns the line-protocol records the store received.
+func (f *TimeSeries) Lines() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.lines))
+	copy(out, f.lines)
+	return out
+}
