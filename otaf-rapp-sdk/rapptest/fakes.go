@@ -36,3 +36,9 @@ type PolicyManagement struct {
 	// Reject makes the next policy fail the way a schema violation does.
 	Reject bool
 }
+
+type Write struct {
+	Method string
+	Path   string
+	Body   string
+}
