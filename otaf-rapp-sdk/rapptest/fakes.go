@@ -37,6 +37,63 @@ type PolicyManagement struct {
 	Reject bool
 }
 
+// NewPolicyManagement returns a fake and a client wired to it. RICs default to
+// one available RIC supporting every type the test asks for.
+func NewPolicyManagement(t testing.TB, rics ...a1.Ric) (*a1.Client, *PolicyManagement) {
+	t.Helper()
+
+	if len(rics) == 0 {
+		rics = []a1.Ric{{
+			ID:                "test-ric",
+			State:             "AVAILABLE",
+			ManagedElementIDs: []string{"me1"},
+		}}
+	}
+
+	f := &PolicyManagement{policies: map[string]a1.Policy{}, rics: rics}
+	srv := httptest.NewServer(f.handler())
+	t.Cleanup(srv.Close)
+
+	client, err := a1.New(a1.Config{
+		Endpoint:  srv.URL,
+		ServiceID: "test-rapp",
+	}, Logger(), a1.WithRetry(retry.None()))
+	if err != nil {
+		t.Fatalf("rapptest: could not build the A1 client: %v", err)
+	}
+	return client, f
+}
+
+// Policies returns everything the rApp has placed.
+func (f *PolicyManagement) Policies() map[string]a1.Policy {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make(map[string]a1.Policy, len(f.policies))
+	for k, v := range f.policies {
+		out[k] = v
+	}
+	return out
+}
+
+// Policy returns one placed policy, with its data decoded into dst.
+func (f *PolicyManagement) Policy(t testing.TB, id string, dst any) a1.Policy {
+	t.Helper()
+
+	f.mu.Lock()
+	p, ok := f.policies[id]
+	f.mu.Unlock()
+
+	if !ok {
+		t.Fatalf("rapptest: no policy %q was placed", id)
+	}
+	if dst != nil {
+		if err := json.Unmarshal(p.Data, dst); err != nil {
+			t.Fatalf("rapptest: policy %q has undecodable data: %v", id, err)
+		}
+	}
+	return p
+}
+
 type Write struct {
 	Method string
 	Path   string
