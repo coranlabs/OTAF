@@ -101,3 +101,23 @@ func (h *Harness) Send(source string, payload any) {
 		h.t.Fatalf("rapptest: handler rejected the message: %v", err)
 	}
 }
+
+// SendExpectingError hands over a message that should be refused, and returns
+// the refusal for inspection.
+func (h *Harness) SendExpectingError(source string, payload any) error {
+	h.t.Helper()
+	err := h.handler.Handle(h.ctx, Message(h.t, source, payload))
+	if err == nil {
+		h.t.Fatal("rapptest: expected the handler to reject this message")
+	}
+	return err
+}
+
+// SendAll replays a sequence, which is how logic that depends on history is
+// driven to a verdict.
+func (h *Harness) SendAll(source string, payloads ...any) {
+	h.t.Helper()
+	for _, p := range payloads {
+		h.Send(source, p)
+	}
+}
