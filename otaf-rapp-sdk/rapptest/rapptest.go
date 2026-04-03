@@ -121,3 +121,26 @@ func (h *Harness) SendAll(source string, payloads ...any) {
 		h.Send(source, p)
 	}
 }
+
+// Snapshot calls the rApp's R1 snapshot function and decodes the result into
+// dst. A snapshot that produced nothing fails the test.
+func (h *Harness) Snapshot(snapshot r1.Snapshot, job r1.Job, dst any) {
+	h.t.Helper()
+
+	if job.ID == "" {
+		job.ID = "test-job"
+	}
+	body, err := snapshot(h.ctx, job)
+	if err != nil {
+		h.t.Fatalf("rapptest: snapshot failed: %v", err)
+	}
+	if len(body) == 0 {
+		h.t.Fatal("rapptest: snapshot produced nothing to deliver")
+	}
+	if dst == nil {
+		return
+	}
+	if err := json.Unmarshal(body, dst); err != nil {
+		h.t.Fatalf("rapptest: snapshot is not valid JSON: %v", err)
+	}
+}
