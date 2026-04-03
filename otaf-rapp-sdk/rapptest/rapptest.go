@@ -144,3 +144,20 @@ func (h *Harness) Snapshot(snapshot r1.Snapshot, job r1.Job, dst any) {
 		h.t.Fatalf("rapptest: snapshot is not valid JSON: %v", err)
 	}
 }
+
+// SnapshotIsEmpty asserts the rApp has nothing to publish, which is how a
+// producer says a job's filter matched nothing.
+func (h *Harness) SnapshotIsEmpty(snapshot r1.Snapshot, job r1.Job) {
+	h.t.Helper()
+
+	if job.ID == "" {
+		job.ID = "test-job"
+	}
+	body, err := snapshot(h.ctx, job)
+	if err != nil {
+		h.t.Fatalf("rapptest: snapshot failed: %v", err)
+	}
+	if len(body) > 0 {
+		h.t.Fatalf("rapptest: expected nothing to deliver, got %s", body)
+	}
+}
