@@ -83,3 +83,21 @@ type Harness struct {
 	handler ingest.Handler
 	ctx     context.Context
 }
+
+func NewHarness(t testing.TB, handler ingest.Handler) *Harness {
+	t.Helper()
+	return &Harness{t: t, handler: handler, ctx: context.Background()}
+}
+
+func (h *Harness) WithContext(ctx context.Context) *Harness {
+	h.ctx = ctx
+	return h
+}
+
+// Send hands one message to the handler and fails the test if it errors.
+func (h *Harness) Send(source string, payload any) {
+	h.t.Helper()
+	if err := h.handler.Handle(h.ctx, Message(h.t, source, payload)); err != nil {
+		h.t.Fatalf("rapptest: handler rejected the message: %v", err)
+	}
+}
