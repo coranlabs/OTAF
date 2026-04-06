@@ -192,3 +192,28 @@ func TestSnapshotIsAsserted(t *testing.T) {
 		t.Errorf("snapshot = %#v, want the one reading seen so far", out.Readings)
 	}
 }
+
+func TestControllerWritesAreRecorded(t *testing.T) {
+	client, ctrl := rapptest.NewController(t)
+
+	err := client.Patch(context.Background(),
+		client.MountPath("_3gpp-common-managed-element:ManagedElement=me1"),
+		[]byte(`{"admin-state":"LOCKED"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writes := ctrl.Writes()
+	if len(writes) != 1 {
+		t.Fatalf("controller saw %d writes, want 1", len(writes))
+	}
+	if writes[0].Method != http.MethodPatch {
+		t.Errorf("method = %s, want PATCH", writes[0].Method)
+	}
+	if !strings.Contains(writes[0].Path, "node=test-node") {
+		t.Errorf("path = %q, want it to address the configured node", writes[0].Path)
+	}
+	if !strings.Contains(writes[0].Body, "LOCKED") {
+		t.Errorf("body = %q, want the payload the rApp sent", writes[0].Body)
+	}
+}
