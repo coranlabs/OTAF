@@ -29,6 +29,7 @@ Apache 2.0. Requires Go 1.23 or newer and six direct dependencies.
 | `r1` | R1 producer and consumer: supervision, job callbacks, information type discovery, subscriptions |
 | `app` | Lifecycle management: HTTP server, `/health` `/ready` `/status` `/metrics`, signal handling, ordered shutdown |
 | `csar` | Package construction and validation equivalent to the platform's own checks |
+| `rapptest` | Test harness and platform fakes for testing without a cluster |
 
 ## Licence
 
