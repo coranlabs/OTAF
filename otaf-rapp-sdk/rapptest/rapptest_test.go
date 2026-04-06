@@ -108,3 +108,53 @@ func TestHarnessDrivesTheHandler(t *testing.T) {
 		t.Errorf("handler saw %d readings, want 2", len(e.seen))
 	}
 }
+
+func TestHarnessSurfacesRejections(t *testing.T) {
+	e, _, _, _ := newEngine(t)
+	h := rapptest.NewHarness(t, e)
+
+	err := h.SendExpectingError("test", reading{Load: 5})
+	if !strings.Contains(err.Error(), "no cell") {
+		t.Errorf("error = %v, want the handler's own message", err)
+	}
+}
+
+// The point of the fake is asserting on the decision, not the transport.
+func TestPolicyIsPlacedOnceLoadIsHigh(t *testing.T) {
+	e, pms, _, _ := newEngine(t)
+	h := rapptest.NewHarness(t, e)
+
+	h.Send("test", reading{Cell: "c1", Load: 20})
+	if pms.Count() != 0 {
+		t.Fatal("a quiet cell should not produce a policy")
+	}
+
+	h.Send("test", reading{Cell: "c1", Load: 91})
+
+	var data struct {
+		Cell string `json:"cell"`
+	}
+	policy := pms.Policy(t, "relief-c1", &data)
+
+	if data.Cell != "c1" {
+		t.Errorf("policy names cell %q, want c1", data.Cell)
+	}
+	if policy.RicID != "test-ric" {
+		t.Errorf("policy went to %q, want test-ric", policy.RicID)
+	}
+	if !policy.Transient {
+		t.Error("a relief decision should be transient")
+	}
+}
+
+func TestRejectedPolicySurfacesToTheHandler(t *testing.T) {
+	e, pms, _, _ := newEngine(t)
+	pms.Reject = true
+
+	h := rapptest.NewHarness(t, e)
+	err := h.SendExpectingError("test", reading{Cell: "c1", Load: 95})
+
+	if !a1.IsRejected(err) {
+		t.Errorf("error should classify as a rejection, got %v", err)
+	}
+}
