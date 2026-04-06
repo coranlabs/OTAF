@@ -76,3 +76,22 @@ func (e *engine) Handle(ctx context.Context, m ingest.Message) error {
 	}
 	return nil
 }
+
+func (e *engine) Snapshot(ctx context.Context, job r1.Job) ([]byte, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if len(e.seen) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(map[string]any{"readings": e.seen})
+}
+
+func newEngine(t *testing.T) (*engine, *rapptest.PolicyManagement, *rapptest.TimeSeries, *rapptest.Controller) {
+	t.Helper()
+
+	policies, pms := rapptest.NewPolicyManagement(t)
+	store, series := rapptest.NewTimeSeries(t)
+	controller, ctrl := rapptest.NewController(t)
+
+	return &engine{store: store, controller: controller, policies: policies}, pms, series, ctrl
+}
