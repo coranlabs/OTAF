@@ -39,3 +39,40 @@ type engine struct {
 	mu   sync.Mutex
 	seen []reading
 }
+
+type reading struct {
+	Cell string  `json:"cell"`
+	Load float64 `json:"load"`
+}
+
+func (e *engine) Handle(ctx context.Context, m ingest.Message) error {
+	var r reading
+	if err := json.Unmarshal(m.Payload, &r); err != nil {
+		return err
+	}
+	if r.Cell == "" {
+		return errors.New("reading has no cell")
+	}
+
+	e.mu.Lock()
+	e.seen = append(e.seen, r)
+	e.mu.Unlock()
+
+	e.store.Point("cell_kpis",
+		map[string]string{"cell": r.Cell},
+		map[string]any{"load": r.Load},
+		m.Received)
+
+	if r.Load > 80 {
+		ric, err := e.policies.RicFor(ctx, "20100", "me1")
+		if err != nil {
+			return err
+		}
+		data, _ := json.Marshal(map[string]any{"cell": r.Cell})
+		return e.policies.PutPolicy(ctx, a1.Policy{
+			ID: "relief-" + r.Cell, RicID: ric.ID, PolicyTypeID: "20100",
+			Transient: true, Data: data,
+		})
+	}
+	return nil
+}
