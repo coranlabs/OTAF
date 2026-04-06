@@ -174,3 +174,21 @@ func TestPersistedPointsAreCaptured(t *testing.T) {
 		t.Errorf("line = %q, want the cell and its load", lines[0])
 	}
 }
+
+func TestSnapshotIsAsserted(t *testing.T) {
+	e, _, _, _ := newEngine(t)
+	h := rapptest.NewHarness(t, e)
+
+	h.SnapshotIsEmpty(e.Snapshot, r1.Job{})
+
+	h.Send("test", reading{Cell: "c1", Load: 12})
+
+	var out struct {
+		Readings []reading `json:"readings"`
+	}
+	h.Snapshot(e.Snapshot, r1.Job{ID: "job-1"}, &out)
+
+	if len(out.Readings) != 1 || out.Readings[0].Cell != "c1" {
+		t.Errorf("snapshot = %#v, want the one reading seen so far", out.Readings)
+	}
+}
