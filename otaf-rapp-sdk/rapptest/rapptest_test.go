@@ -158,3 +158,19 @@ func TestRejectedPolicySurfacesToTheHandler(t *testing.T) {
 		t.Errorf("error should classify as a rejection, got %v", err)
 	}
 }
+
+func TestPersistedPointsAreCaptured(t *testing.T) {
+	e, _, series, _ := newEngine(t)
+	h := rapptest.NewHarness(t, e)
+
+	h.Send("test", reading{Cell: "c1", Load: 42})
+	e.store.Flush(context.Background())
+
+	lines := series.Lines()
+	if len(lines) != 1 {
+		t.Fatalf("store received %d lines, want 1", len(lines))
+	}
+	if !strings.Contains(lines[0], "cell_kpis,cell=c1") || !strings.Contains(lines[0], "load=42") {
+		t.Errorf("line = %q, want the cell and its load", lines[0])
+	}
+}
