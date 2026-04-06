@@ -95,3 +95,16 @@ func newEngine(t *testing.T) (*engine, *rapptest.PolicyManagement, *rapptest.Tim
 
 	return &engine{store: store, controller: controller, policies: policies}, pms, series, ctrl
 }
+
+func TestHarnessDrivesTheHandler(t *testing.T) {
+	e, _, _, _ := newEngine(t)
+	h := rapptest.NewHarness(t, e)
+
+	h.SendAll("test", reading{Cell: "c1", Load: 10}, reading{Cell: "c2", Load: 20})
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if len(e.seen) != 2 {
+		t.Errorf("handler saw %d readings, want 2", len(e.seen))
+	}
+}
