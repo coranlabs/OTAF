@@ -217,3 +217,13 @@ func TestControllerWritesAreRecorded(t *testing.T) {
 		t.Errorf("body = %q, want the payload the rApp sent", writes[0].Body)
 	}
 }
+
+func TestControllerRejectionIsVisible(t *testing.T) {
+	client, ctrl := rapptest.NewController(t)
+	ctrl.RejectWrites(true)
+
+	err := client.Patch(context.Background(), client.MountPath("x"), []byte(`{}`))
+	if err == nil {
+		t.Fatal("expected the controller to refuse the write")
+	}
+}
