@@ -67,3 +67,26 @@ func TestRenderProducesACompletePackageLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestIdentifiersAreGeneratedAndDistinct(t *testing.T) {
+	_, s := render(t)
+
+	if !isUUIDish(s.DescriptorID) || !isUUIDish(s.DescriptorInvariantID) {
+		t.Fatalf("identifiers should be UUIDs, got %q and %q", s.DescriptorID, s.DescriptorInvariantID)
+	}
+	if s.DescriptorID == s.DescriptorInvariantID {
+		t.Error("descriptor id and invariant id must differ")
+	}
+}
+
+func TestGeneratedSpecIsUsable(t *testing.T) {
+	dir, _ := render(t)
+
+	spec, err := csar.LoadSpec(filepath.Join(dir, csar.SpecFile))
+	if err != nil {
+		t.Fatalf("the generated package descriptor should load cleanly: %v", err)
+	}
+	if spec.Name != "demo-rapp" {
+		t.Errorf("name = %q, want demo-rapp", spec.Name)
+	}
+}
