@@ -1,0 +1,174 @@
+// Package logic holds everything specific to [[.Name]]. The SDK owns the
+// plumbing around it; what follows is the part only this rApp can decide.
+package logic
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"sync"
+	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/a1"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/errs"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/influx"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/ingest"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/r1"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/sdnr"
+)
+
+const keep = 64
+
+type Observation struct {
+	At      time.Time      `json:"at"`
+	Source  string         `json:"source"`
+	Subject string         `json:"subject"`
+	Values  map[string]any `json:"values,omitempty"`
+}
+
+type Engine struct {
+	logger     *logrus.Logger
+	store      *influx.Writer
+	controller *sdnr.Client
+	policies   *a1.Client
+
+	mu      sync.RWMutex
+	recent  []Observation
+	handled int
+}
+
+func New(logger *logrus.Logger, store *influx.Writer, controller *sdnr.Client, policies *a1.Client) *Engine {
+	return &Engine{logger: logger, store: store, controller: controller, policies: policies}
+}
+
+// Handle receives every message the pipeline accepts. Replace the body with
+// the rApp's own analysis; return an error only when the message could not be
+// processed at all, since that is what gets counted as a failure.
+func (e *Engine) Handle(ctx context.Context, m ingest.Message) error {
+	var payload map[string]any
+	if err := json.Unmarshal(m.Payload, &payload); err != nil {
+		// Saying what kind of failure this is decides four things at once:
+		// it is not retried, it is dropped rather than parked in the
+		// dead-letter queue, it is logged as a warning with this code, and it
+		// is counted as rapp_failures_total{category="data"}.
+		return errs.Wrap(err, errs.CategoryData, "MALFORMED_PAYLOAD", "payload is not JSON")
+	}
+
+	subject := stringOf(payload["id"])
+	if subject == "" {
+		return errs.New(errs.CategoryData, "MISSING_SUBJECT", "payload has no id")
+	}
+
+	obs := Observation{
+		At:      m.Received,
+		Source:  m.Source,
+		Subject: subject,
+		Values:  payload,
+	}
+
+	e.mu.Lock()
+	e.recent = append(e.recent, obs)
+	if len(e.recent) > keep {
+		e.recent = e.recent[len(e.recent)-keep:]
+	}
+	e.handled++
+	e.mu.Unlock()
+
+	// Anything the rApp derives can be persisted for later analysis.
+	e.store.Point("observations",
+		map[string]string{"source": m.Source, "subject": obs.Subject},
+		map[string]any{"count": 1},
+		obs.At,
+	)
+
+	// Two ways to act on what you decided:
+	//
+	//   over O1, straight at the node
+	//     e.controller.Patch(ctx, e.controller.MountPath("..."), body)
+	//
+	//   over A1, as a policy the Near-RT RIC enforces
+	//     e.Steer(ctx, obs.Subject, ...)
+
+	e.logger.WithFields(logrus.Fields{"source": m.Source, "bytes": len(m.Payload)}).Debug("observation recorded")
+	return nil
+}
+
+// Steer places an A1 policy on whichever Near-RT RIC supports the type and
+// manages the element in question. Replace the policy type and data with the
+// ones your RIC advertises; the platform validates the data against the type's
+// schema and rejects anything that does not fit.
+func (e *Engine) Steer(ctx context.Context, policyID, policyTypeID, managedElementID string, data any) error {
+	if e.policies == nil {
+		return nil
+	}
+
+	// Failures from the SDK's clients already classify themselves, so they
+	// need no wrapping to be retried, counted and logged correctly.
+	ric, err := e.policies.RicFor(ctx, policyTypeID, managedElementID)
+	if err != nil {
+		return err
+	}
+
+	body, err := json.Marshal(data)
+	if err != nil {
+		return errs.Wrap(err, errs.CategoryInternal, "POLICY_ENCODE_FAILED",
+			"could not encode the policy body")
+	}
+
+	return e.policies.PutPolicy(ctx, a1.Policy{
+		ID:           policyID,
+		RicID:        ric.ID,
+		PolicyTypeID: policyTypeID,
+		Data:         body,
+		Transient:    true,
+	})
+}
+
+// Snapshot answers an R1 information job. Return nil to deliver nothing this
+// round, which is how a job whose filter matched no data stays quiet.
+func (e *Engine) Snapshot(ctx context.Context, job r1.Job) ([]byte, error) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	if len(e.recent) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(map[string]any{
+		"job":          job.ID,
+		"generated_at": time.Now().UTC(),
+		"observations": e.recent,
+	})
+}
+
+// Register adds the rApp's own endpoints. They sit behind the operator guard.
+func (e *Engine) Register(r *mux.Router) {
+	r.HandleFunc("/observations", e.handleObservations).Methods(http.MethodGet)
+}
+
+func (e *Engine) handleObservations(w http.ResponseWriter, r *http.Request) {
+	e.mu.RLock()
+	out := make([]Observation, len(e.recent))
+	copy(out, e.recent)
+	e.mu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"observations": out})
+}
+
+// StatusDetail adds rApp-specific fields to GET /status.
+func (e *Engine) StatusDetail() map[string]any {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return map[string]any{
+		"observations_held": len(e.recent),
+		"messages_handled":  e.handled,
+	}
+}
+
+func stringOf(v any) string {
+	s, _ := v.(string)
+	return s
+}

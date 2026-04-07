@@ -1,0 +1,141 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/a1"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/app"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/auth"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/config"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/health"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/influx"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/ingest"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/ingest/httpsrc"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/log"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/r1"
+	"github.com/coranlabs/OTAF/otaf-rapp-sdk/sdnr"
+
+	"[[.Module]]/internal/logic"
+)
+
+// deliveryPath is where subscribed data arrives. The ingest source listens
+// here and the information job points producers at it.
+const deliveryPath = "/data"
+
+// Settings mirrors config/rapp.yaml. Every field tagged with env can be
+// overridden by the chart without rebuilding the image.
+type Settings struct {
+	Rapp      config.Rapp       `yaml:"rapp"`
+	SDNR      sdnr.Config       `yaml:"sdnr"`
+	A1        a1.Config         `yaml:"a1"`
+	ICS       r1.ConsumerConfig `yaml:"ics"`
+	Influx    influx.Config     `yaml:"influx"`
+	Operators string            `yaml:"operators" env:"OPERATOR_ACCOUNTS"`
+}
+
+func main() {
+	var cfg Settings
+	if err := config.Load(&cfg); err != nil {
+		fmt.Fprintln(os.Stderr, "configuration:", err)
+		os.Exit(1)
+	}
+
+	logger := log.New(cfg.Rapp.LogLevel, cfg.Rapp.LogFormat)
+
+	store, err := influx.New(cfg.Influx, logger)
+	if err != nil {
+		app.Fatal(logger, err, "time-series configuration is invalid")
+	}
+
+	// Reaching the network over O1. Leave the endpoint unset while the rApp
+	// only observes.
+	var controller *sdnr.Client
+	if cfg.SDNR.Endpoint != "" {
+		if controller, err = sdnr.New(cfg.SDNR, logger); err != nil {
+			app.Fatal(logger, err, "controller configuration is invalid")
+		}
+	}
+
+	// Steering the Near-RT RIC over A1. Nil until an endpoint is configured.
+	policies, err := a1.New(cfg.A1, logger)
+	if err != nil {
+		app.Fatal(logger, err, "A1 configuration is invalid")
+	}
+
+	engine := logic.New(logger, store, controller, policies)
+
+	source := httpsrc.New(deliveryPath, httpsrc.WithLogger(logger))
+
+	pipeline := ingest.NewPipeline(engine,
+		ingest.WithLogger(logger),
+		ingest.WithBuffer(512),
+	)
+	pipeline.AddSource(source)
+
+	producer := r1.NewProducer("[[.Name]]-producer", engine.Snapshot, logger)
+
+	guard, err := auth.NewGuard(cfg.Operators, logger, auth.WithTrustedProxy(true))
+	if err != nil {
+		app.Fatal(logger, err, "operator accounts are invalid")
+	}
+
+	options := []app.Option{
+		app.WithLogger(logger),
+		app.WithGuard(guard),
+		app.WithPipeline(pipeline),
+		app.WithComponent(producer),
+		app.WithStatusDetail(engine.StatusDetail),
+	}
+	if store != nil {
+		options = append(options, app.WithComponent(store))
+	}
+	if policies != nil {
+		options = append(options, app.WithComponent(policies))
+	}
+
+	// Subscribing to data another rApp publishes. Name the information type
+	// you want and the SDK keeps the job alive, retrying while the producer
+	// is not there yet.
+	consumer, err := r1.NewConsumer(cfg.ICS, logger)
+	if err != nil {
+		app.Fatal(logger, err, "information consumer configuration is invalid")
+	}
+	if consumer != nil {
+		err = consumer.Want(r1.Subscription{
+			JobID:      "[[.Name]]-job",
+			InfoTypeID: "REPLACE_WITH_THE_INFO_TYPE_YOU_CONSUME",
+			DeliverTo:  deliveryPath,
+			Definition: map[string]any{"delivery_interval_seconds": 30},
+		})
+		if err != nil {
+			app.Fatal(logger, err, "subscription is invalid")
+		}
+		options = append(options, app.WithComponent(consumer))
+	}
+
+	rapp, err := app.New(cfg.Rapp, options...)
+	if err != nil {
+		app.Fatal(logger, err, "rApp could not be initialised")
+	}
+
+	engine.Register(rapp.Router())
+
+	if controller != nil {
+		rapp.Health().Add(health.Func("sdnr", controller.Ping))
+	}
+	if policies != nil {
+		rapp.Health().Add(health.Func("a1", policies.Ping))
+	}
+	if consumer != nil {
+		rapp.Health().Add(health.Func("ics", consumer.Ping))
+	}
+
+	ctx, stop := app.SignalContext(context.Background())
+	defer stop()
+
+	if err := rapp.Run(ctx); err != nil {
+		app.Fatal(logger, err, "rApp stopped with an error")
+	}
+}
