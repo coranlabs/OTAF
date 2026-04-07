@@ -1,0 +1,99 @@
+fullnameOverride: [[.Name]]
+
+image:
+  repository: [[.ImageRepo]]
+  tag: "[[.Version]]"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+  nodePort: [[.NodePort]]
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 50m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+logLevel: info
+logFormat: json
+
+# The rApp serves Prometheus exposition on /metrics without a session. Turn the
+# ServiceMonitor on where the Prometheus Operator is installed, and set labels
+# to whatever your own Prometheus selects on. Find it with:
+#   kubectl get prometheus -A -o jsonpath='{..serviceMonitorSelector}'
+metrics:
+  serviceMonitor:
+    enabled: false
+    labels: {}
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Reaching the network over O1 through the SMO controller. Leave the endpoint
+# empty while the rApp only observes.
+sdnr:
+  endpoint: ""
+  username: ""
+  nodeId: ""
+
+# Steering the Near-RT RIC over A1. Leave the endpoint empty to stay
+# observe-only; the usual value is the policy management service.
+a1:
+  endpoint: ""
+  serviceId: [[.Name]]
+
+# Subscribing to data other rApps publish, through the information
+# coordinator. Leave the endpoint empty to disable it.
+ics:
+  endpoint: ""
+  owner: [[.Name]]
+
+influx:
+  url: ""
+  org: ""
+  bucket: ""
+
+# The ACM instance values object is not applied to the chart, so anything
+# secret has to be set here and lands in a Kubernetes Secret.
+secrets:
+  sdnrPassword: ""
+  influxToken: ""
+
+# Operator accounts for the rApp's own endpoints.
+operators: []
+#  - username: operator
+#    passwordHash: "$2a$10$..."
+
+configYaml: |
+  rapp:
+    name: [[.Name]]
+    version: "[[.Version]]"
+    http_port: "8080"
+    log_level: {{ .Values.logLevel }}
+    log_format: {{ .Values.logFormat }}
+
+  sdnr:
+    endpoint: "{{ .Values.sdnr.endpoint }}"
+    username: "{{ .Values.sdnr.username }}"
+    node_id: "{{ .Values.sdnr.nodeId }}"
+    timeout: 30s
+
+  a1:
+    endpoint: "{{ .Values.a1.endpoint }}"
+    service_id: "{{ .Values.a1.serviceId }}"
+    keep_alive: 5m
+    timeout: 30s
+
+  ics:
+    endpoint: "{{ .Values.ics.endpoint }}"
+    owner: "{{ .Values.ics.owner }}"
+    self_url: "http://[[.Name]].{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}"
+    timeout: 30s
+
+  influx:
+    url: "{{ .Values.influx.url }}"
+    org: "{{ .Values.influx.org }}"
+    bucket: "{{ .Values.influx.bucket }}"

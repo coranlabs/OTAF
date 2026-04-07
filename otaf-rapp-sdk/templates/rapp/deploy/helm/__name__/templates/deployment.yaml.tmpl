@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rapp.fullname" . }}
+  labels:
+    {{- include "rapp.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "rapp.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "rapp.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: rapp
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: CONFIG_PATH
+              value: /app/config/rapp.yaml
+            - name: HTTP_PORT
+              value: {{ .Values.service.port | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: LOG_FORMAT
+              value: {{ .Values.logFormat | quote }}
+            - name: SDNR_ADDR
+              value: {{ .Values.sdnr.endpoint | quote }}
+            - name: SDNR_USER
+              value: {{ .Values.sdnr.username | quote }}
+            - name: NODE_ID
+              value: {{ .Values.sdnr.nodeId | quote }}
+            - name: SDNR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rapp.fullname" . }}-secrets
+                  key: sdnr-password
+            - name: A1_PMS_ADDR
+              value: {{ .Values.a1.endpoint | quote }}
+            - name: A1_SERVICE_ID
+              value: {{ .Values.a1.serviceId | quote }}
+            - name: ICS_ADDR
+              value: {{ .Values.ics.endpoint | quote }}
+            - name: ICS_JOB_OWNER
+              value: {{ .Values.ics.owner | quote }}
+            - name: INFLUX_URL
+              value: {{ .Values.influx.url | quote }}
+            - name: INFLUX_ORG
+              value: {{ .Values.influx.org | quote }}
+            - name: INFLUX_BUCKET
+              value: {{ .Values.influx.bucket | quote }}
+            - name: INFLUX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rapp.fullname" . }}-secrets
+                  key: influx-token
+            - name: OPERATOR_ACCOUNTS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rapp.fullname" . }}-secrets
+                  key: operators
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "rapp.fullname" . }}-config
+            items:
+              - key: rapp.yaml
+                path: rapp.yaml
