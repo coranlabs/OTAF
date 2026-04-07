@@ -167,3 +167,7 @@ func TestLocalSdkReplacementIsOptional(t *testing.T) {
 		t.Error("an SDK path should produce a replace directive")
 	}
 }
+
+func isUUIDish(s string) bool {
+	return len(s) == 36 && strings.Count(s, "-") == 4
+}
