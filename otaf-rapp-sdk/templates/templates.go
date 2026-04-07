@@ -58,3 +58,53 @@ type Scaffold struct {
 	// working against an unreleased version.
 	SDKReplace string
 }
+
+func (s *Scaffold) applyDefaults() error {
+	if s.Name == "" {
+		return fmt.Errorf("rApp name is required")
+	}
+	if s.Module == "" {
+		s.Module = s.Name
+	}
+	if s.Provider == "" {
+		s.Provider = "coRAN Labs"
+	}
+	if s.Description == "" {
+		s.Description = fmt.Sprintf("%s rApp for the Non-RT RIC", s.Name)
+	}
+	if s.Version == "" {
+		s.Version = "0.1.0"
+	}
+	if s.Namespace == "" {
+		s.Namespace = "nonrtric"
+	}
+	if s.ImageRepo == "" {
+		s.ImageRepo = "localhost:5000/" + s.Name
+	}
+	if s.NodePort == 0 {
+		s.NodePort = 30980
+	}
+	if s.ChartMuseum == "" {
+		s.ChartMuseum = csar.DefaultChartMuseum
+	}
+	s.SDKModule = "github.com/coranlabs/OTAF/otaf-rapp-sdk"
+	s.SDKVersion = rappsdk.Version
+
+	var err error
+	if s.DescriptorID == "" {
+		if s.DescriptorID, err = UUID(); err != nil {
+			return err
+		}
+	}
+	if s.DescriptorInvariantID == "" {
+		if s.DescriptorInvariantID, err = UUID(); err != nil {
+			return err
+		}
+	}
+	if s.ElementID == "" {
+		if s.ElementID, err = UUID(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
