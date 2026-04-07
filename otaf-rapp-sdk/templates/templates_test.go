@@ -90,3 +90,45 @@ func TestGeneratedSpecIsUsable(t *testing.T) {
 		t.Errorf("name = %q, want demo-rapp", spec.Name)
 	}
 }
+
+// The chart the composition instance asks for has to be the chart the repo
+// actually builds, or deployment fails long after onboarding succeeded.
+func TestChartVersionMatchesCompositionInstance(t *testing.T) {
+	dir, s := render(t)
+
+	chart := read(t, dir, "deploy/helm/demo-rapp/Chart.yaml")
+	instance := read(t, dir, "rapp-package/Files/Acm/instances/demo-rapp-instance.json")
+
+	if !strings.Contains(chart, `version: "`+s.Version+`"`) {
+		t.Errorf("chart does not declare version %s", s.Version)
+	}
+	if !strings.Contains(instance, `"version": "`+s.Version+`"`) {
+		t.Errorf("composition instance does not ask for chart version %s", s.Version)
+	}
+	if !strings.Contains(instance, `"name": "demo-rapp"`) {
+		t.Error("composition instance does not ask for the chart this repo builds")
+	}
+}
+
+// A version left unquoted in YAML is read as a number, so 1.10 becomes 1.1 and
+// Helm then packages a chart nobody asked for.
+func TestVersionsAreQuotedEverywhere(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Render(dir, &Scaffold{Name: "demo-rapp", Version: "1.10"}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, file := range []string{
+		"deploy/helm/demo-rapp/Chart.yaml",
+		"rapp-package.yaml",
+		"config/rapp.yaml",
+	} {
+		body := read(t, dir, file)
+		if strings.Contains(body, "version: 1.10\n") {
+			t.Errorf("%s leaves a version unquoted", file)
+		}
+		if !strings.Contains(body, `"1.10"`) {
+			t.Errorf("%s does not carry the version as a quoted string", file)
+		}
+	}
+}
