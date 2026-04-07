@@ -108,3 +108,71 @@ func (s *Scaffold) applyDefaults() error {
 	}
 	return nil
 }
+
+// Render writes the scaffold into dir. It refuses to touch an existing file so
+// re-running it can never clobber work in progress.
+func Render(dir string, s *Scaffold) ([]string, error) {
+	if err := s.applyDefaults(); err != nil {
+		return nil, err
+	}
+
+	var written []string
+	err := fs.WalkDir(files, "rapp", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		rel := strings.TrimPrefix(p, "rapp/")
+		rel = strings.TrimSuffix(rel, ".tmpl")
+		rel = strings.ReplaceAll(rel, namePlaceholder, s.Name)
+		target := filepath.Join(dir, filepath.FromSlash(rel))
+
+		if _, statErr := os.Stat(target); statErr == nil {
+			return fmt.Errorf("%s already exists", target)
+		}
+
+		body, err := files.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		rendered, err := execute(rel, string(body), s)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		mode := os.FileMode(0o644)
+		if strings.HasSuffix(rel, ".sh") {
+			mode = 0o755
+		}
+		if err := os.WriteFile(target, rendered, mode); err != nil {
+			return err
+		}
+		written = append(written, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Strings(written)
+	return written, nil
+}
+
+// Delimiters avoid Go's default braces so Helm templates in the scaffold pass
+// through untouched.
+func execute(name, body string, s *Scaffold) ([]byte, error) {
+	t, err := template.New(name).Delims("[[", "]]").Option("missingkey=error").Parse(body)
+	if err != nil {
+		return nil, fmt.Errorf("parse template %s: %w", name, err)
+	}
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, s); err != nil {
+		return nil, fmt.Errorf("render template %s: %w", name, err)
+	}
+	return buf.Bytes(), nil
+}
+
+// UUID returns a random RFC 4122 version 4 identifier.
+func UUID() (string, error) { return csar.UUID() }
