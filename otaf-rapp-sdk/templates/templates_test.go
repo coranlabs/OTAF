@@ -132,3 +132,38 @@ func TestVersionsAreQuotedEverywhere(t *testing.T) {
 		}
 	}
 }
+
+func TestHelmSyntaxSurvivesRendering(t *testing.T) {
+	dir, _ := render(t)
+
+	deployment := read(t, dir, "deploy/helm/demo-rapp/templates/deployment.yaml")
+	if !strings.Contains(deployment, `{{ include "rapp.fullname" . }}`) {
+		t.Error("Helm directives must pass through the scaffolder untouched")
+	}
+}
+
+func TestRenderRefusesToOverwrite(t *testing.T) {
+	dir, _ := render(t)
+
+	if _, err := Render(dir, &Scaffold{Name: "demo-rapp"}); err == nil {
+		t.Fatal("rendering over an existing scaffold should fail rather than clobber it")
+	}
+}
+
+func TestLocalSdkReplacementIsOptional(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Render(dir, &Scaffold{Name: "demo-rapp"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(read(t, dir, "go.mod"), "replace") {
+		t.Error("a scaffold without an SDK path must not pin the module to a local checkout")
+	}
+
+	other := t.TempDir()
+	if _, err := Render(other, &Scaffold{Name: "demo-rapp", SDKReplace: "/opt/otaf-rapp-sdk"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(read(t, other, "go.mod"), "replace github.com/coranlabs/OTAF/otaf-rapp-sdk => /opt/otaf-rapp-sdk") {
+		t.Error("an SDK path should produce a replace directive")
+	}
+}
