@@ -1,0 +1,25 @@
+{
+  "info_type_id": "[[.Name]]-state",
+  "info_job_data_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "[[.Name]] state job data",
+    "description": "Subscription parameters a consumer sends when it asks [[.Name]] for data",
+    "type": "object",
+    "properties": {
+      "delivery_interval_seconds": {
+        "type": "integer",
+        "minimum": 5,
+        "maximum": 3600,
+        "default": 30,
+        "description": "How often the snapshot is delivered to the job target"
+      }
+    },
+    "additionalProperties": false
+  },
+  "info_type_information": {
+    "description": "State published by [[.Name]]",
+    "data_format": "JSON",
+    "update_frequency": "PERIODIC",
+    "source": "[[.Name]]"
+  }
+}
