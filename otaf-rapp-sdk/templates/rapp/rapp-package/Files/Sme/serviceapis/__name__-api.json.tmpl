@@ -1,0 +1,24 @@
+{
+  "apiName": "[[.Name]]-api",
+  "description": "[[.Description]]",
+  "aefProfiles": [
+    {
+      "aefId": "[[.Name]] as AEF",
+      "description": "Endpoints [[.Name]] exposes to other rApps",
+      "versions": [
+        {
+          "apiVersion": "v1",
+          "resources": [
+            { "resourceName": "observations", "commType": "REQUEST_RESPONSE", "uri": "/observations", "operations": ["GET"] },
+            { "resourceName": "health", "commType": "REQUEST_RESPONSE", "uri": "/health", "operations": ["GET"] },
+            { "resourceName": "status", "commType": "REQUEST_RESPONSE", "uri": "/status", "operations": ["GET"] }
+          ]
+        }
+      ],
+      "protocol": "HTTP_1_1",
+      "interfaceDescriptions": [
+        { "ipv4Addr": "[[.Name]].[[.Namespace]].svc.cluster.local", "port": 8080 }
+      ]
+    }
+  ]
+}
