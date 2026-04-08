@@ -1,0 +1,33 @@
+{
+  "name": "[[.Name]]-instance-DO_NOT_CHANGE_THIS_RAPP_INSTANCE_ID",
+  "version": "[[.Version]]",
+  "compositionId": "DO_NOT_CHANGE_THIS_COMPOSITION_ID",
+  "description": "Automation composition instance for [[.Name]]",
+  "elements": {
+    "[[.ElementID]]": {
+      "id": "[[.ElementID]]",
+      "definition": {
+        "name": "onap.policy.clamp.ac.element.[[.Name]]K8sElement",
+        "version": "1.0.0"
+      },
+      "description": "[[.Name]] Kubernetes deployment",
+      "properties": {
+        "chart": {
+          "chartId": {
+            "name": "[[.Name]]",
+            "version": "[[.Version]]"
+          },
+          "repository": {
+            "repoName": "chartmuseum",
+            "address": "http://chartmuseum.[[.Namespace]]:8080"
+          },
+          "releaseName": "[[.Name]]",
+          "namespace": "[[.Namespace]]"
+        },
+        "values": {
+          "_note": "Not applied to the chart. Real configuration lives in the chart's values.yaml."
+        }
+      }
+    }
+  }
+}
