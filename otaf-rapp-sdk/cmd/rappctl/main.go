@@ -54,3 +54,12 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// splitPositional lifts a leading argument out before flag parsing, which
+// otherwise stops at the first non-flag and silently ignores everything after.
+func splitPositional(args []string) (string, []string) {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		return args[0], args[1:]
+	}
+	return "", args
+}
