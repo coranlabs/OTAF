@@ -1,0 +1,62 @@
+# [[.Name]]
+
+[[.Description]]
+
+Built with the [OTAF rApp SDK](https://[[.SDKModule]]). The SDK owns configuration, the HTTP
+surface, ingest, the R1 producer and packaging; this repository owns the
+analysis in `internal/logic`.
+
+## Where the logic goes
+
+`internal/logic/logic.go` has three entry points:
+
+| Method | Called when |
+| --- | --- |
+| `Handle` | a message arrives on any ingest source |
+| `Snapshot` | an R1 information job is due for delivery |
+| `Register` | the HTTP surface is being assembled |
+
+Everything else is wired in `cmd/[[.Name]]/main.go` and rarely needs changing.
+
+## Onboarding
+
+`[[.Name]]` is deployed by rApp Manager over R1. Build the package and hand it
+to the platform:
+
+```bash
+rappctl package                 # -> dist/[[.Name]]-[[.Version]].csar
+```
+
+Then, against your Non-RT RIC:
+
+1. Push the container image to the registry the chart points at
+   (`image.repository` in `deploy/helm/[[.Name]]/values.yaml`).
+2. Upload `dist/[[.Name]]-[[.Version]].csar` to rApp Manager and prime it. The
+   platform uploads the chart to the chart repository and registers the
+   composition, the information type and the service API.
+3. Create an rApp instance selecting the resources shipped in the package:
+
+   ```json
+   {
+     "acm": { "instance": "[[.Name]]-instance" },
+     "dme": {
+       "infoTypesProducer": ["[[.Name]]-state"],
+       "infoProducer": "[[.Name]]-producer"
+     },
+     "sme": { "serviceApis": "[[.Name]]-api", "providerFunction": "[[.Name]]-provider" }
+   }
+   ```
+
+4. Deploy the instance. The platform starts the workload and the rApp begins
+   answering supervision on `/r1/producer-health`.
+
+Resources are referred to by file base name, so renaming a file under
+`rapp-package/Files` changes the identifier the instance must use.
+
+## Configuration
+
+`config/rapp.yaml` is rendered into the deployment by the chart. Any field
+carrying an `env` tag can be overridden per environment without a rebuild;
+secrets come from the chart's Secret, never from the ACM instance values.
+
+Generate an operator password hash with `rappctl hashpw`.

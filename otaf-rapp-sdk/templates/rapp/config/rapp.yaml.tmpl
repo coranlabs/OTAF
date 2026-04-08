@@ -1,0 +1,37 @@
+rapp:
+  name: [[.Name]]
+  version: "[[.Version]]"
+  http_port: "8080"
+  log_level: info
+  log_format: text
+
+sdnr:
+  endpoint: ""
+  username: ""
+  password: ""
+  node_id: ""
+  timeout: 30s
+
+# Steering the Near-RT RIC. An empty endpoint leaves the rApp observe-only.
+a1:
+  endpoint: ""
+  service_id: [[.Name]]
+  keep_alive: 5m
+  timeout: 30s
+
+# Subscribing to data other rApps publish. An empty endpoint disables it.
+ics:
+  endpoint: ""
+  owner: [[.Name]]
+  self_url: "http://[[.Name]].[[.Namespace]].svc.cluster.local:8080"
+  timeout: 30s
+
+influx:
+  url: ""
+  org: ""
+  bucket: ""
+  token: ""
+
+# name:bcrypt-hash pairs. Generate a hash with `rappctl hashpw`.
+# Left empty, the rApp's own endpoints are reachable without a session.
+operators: ""
