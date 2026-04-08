@@ -63,3 +63,17 @@ func splitPositional(args []string) (string, []string) {
 	}
 	return "", args
 }
+
+func usage() {
+	fmt.Fprint(os.Stderr, `rappctl - build rApps for the O-RAN Non-RT RIC
+
+Usage:
+  rappctl new <name> [flags]      create a new rApp repository
+  rappctl package [flags]         build the rApp package from `+"`rapp-package.yaml`"+`
+  rappctl validate <file.csar>    check a package the way the platform does
+  rappctl hashpw [password]       hash an operator password
+  rappctl version                 print the SDK version
+
+Run any command with -h for its flags.
+`)
+}
