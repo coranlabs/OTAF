@@ -1,0 +1,17 @@
+# Descriptor for `rappctl package`. The two identifiers below are what the
+# platform uses to tell this rApp apart from every other one it has onboarded,
+# so keep them stable for the life of the rApp.
+name: [[.Name]]
+version: "[[.Version]]"
+provider: [[.Provider]]
+description: [[.Description]]
+
+descriptor_id: [[.DescriptorID]]
+descriptor_invariant_id: [[.DescriptorInvariantID]]
+
+charts:
+  - path: deploy/helm/[[.Name]]
+    target_server_uri: [[.ChartMuseum]]
+
+resource_dir: rapp-package
+output_dir: dist
