@@ -19,6 +19,13 @@ import (
 	"sort"
 )
 
+// Textbook summaries over a window of values, so a classifier can describe a
+// trend without each rApp rewriting them. Nothing here decides anything: what
+// counts as high, falling or unacceptable is the rApp's to say.
+//
+// Every function ignores NaN and returns zero for an empty input, so a
+// classifier running on a short or gappy window does not have to guard.
+
 func Mean(values []float64) float64 {
 	var sum float64
 	var n int

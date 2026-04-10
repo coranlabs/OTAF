@@ -20,6 +20,7 @@ import (
 	"time"
 )
 
+// kpi stands in for whatever an rApp measures. The SDK never looks inside it.
 type kpi struct {
 	Value float64
 }

@@ -31,6 +31,8 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/sdnr"
 )
 
+// engine stands in for the logic an rApp author writes. It is deliberately
+// shaped like the scaffold's: observe, persist, decide, publish.
 type engine struct {
 	store      *influx.Writer
 	controller *sdnr.Client

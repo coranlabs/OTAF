@@ -21,6 +21,8 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/errs"
 )
 
+// New returns a logger at the given level. Format "json" emits structured
+// records for the platform's log pipeline; anything else stays human readable.
 func New(level, format string) *logrus.Logger {
 	l := logrus.New()
 

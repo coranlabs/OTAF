@@ -25,6 +25,7 @@ import (
 	"time"
 )
 
+// Policy describes how many times to try and how long to wait between tries.
 type Policy struct {
 	// Attempts counts the first try, so 1 means no retry at all.
 	Attempts   int
@@ -125,7 +126,6 @@ func Retryable(err error) bool {
 type permanentError struct{ err error }
 
 func (e *permanentError) Error() string { return e.err.Error() }
-
 func (e *permanentError) Unwrap() error { return e.err }
 
 // Permanent marks an error as not worth retrying, whatever it otherwise says.

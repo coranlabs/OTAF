@@ -1,0 +1,40 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - errorlint
+    - misspell
+    - unconvert
+    - goconst
+    - revive
+
+linters-settings:
+  errcheck:
+    # Writing an HTTP response or draining a body can fail in ways nothing can
+    # act on; those are marked with _ at the call site instead.
+    check-type-assertions: true
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+  goconst:
+    min-occurrences: 4
+
+issues:
+  exclude-rules:
+    # Table-driven tests repeat literals by nature, and a fake server ignores
+    # write errors the same way a real one would.
+    - path: _test\.go
+      linters:
+        - goconst
+        - errcheck
+        - bodyclose
+  max-issues-per-linter: 0
+  max-same-issues: 0

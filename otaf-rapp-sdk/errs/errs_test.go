@@ -21,6 +21,7 @@ import (
 	"testing"
 )
 
+// Naming the category should be enough for the common case.
 func TestCategoryDrivesTheDefaults(t *testing.T) {
 	cases := map[Category]struct {
 		severity  Severity
@@ -303,7 +304,6 @@ func TestNewfAndWrapf(t *testing.T) {
 type stated struct{ retryable bool }
 
 func (s *stated) Error() string   { return "stated" }
-
 func (s *stated) Retryable() bool { return s.retryable }
 
 // foreign stands in for an error from a package that does not import this one.
@@ -314,9 +314,6 @@ type foreign struct {
 }
 
 func (f *foreign) Error() string         { return "foreign failure" }
-
 func (f *foreign) ErrorCategory() string { return f.category }
-
 func (f *foreign) ErrorCode() string     { return f.code }
-
 func (f *foreign) HTTPStatus() int       { return f.status }

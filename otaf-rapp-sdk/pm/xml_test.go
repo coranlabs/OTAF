@@ -19,6 +19,7 @@ import (
 	"time"
 )
 
+// The form with positioned measType elements, carrying the 3GPP namespace.
 const xmlPositional = `<?xml version="1.0" encoding="UTF-8"?>
 <measCollecFile xmlns="http://www.3gpp.org/ftp/specs/archive/32_series/32.435#measCollec">
   <fileHeader fileFormatVersion="32.435 V10.0" vendorName="Acme" dnPrefix="SubNetwork=Europe">

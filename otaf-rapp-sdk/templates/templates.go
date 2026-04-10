@@ -31,6 +31,7 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/csar"
 )
 
+//go:embed all:rapp
 var files embed.FS
 
 const namePlaceholder = "__name__"

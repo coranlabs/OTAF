@@ -20,6 +20,9 @@ import (
 	"net/http"
 )
 
+// Error is a call to the managed network that did not succeed. It carries what
+// the caller needs to decide: whether the node refused, or was simply not
+// reachable.
 type Error struct {
 	Method string
 	Path   string

@@ -16,6 +16,8 @@ package analytics
 
 import "time"
 
+// History is a bounded window of samples, oldest first. It exists so a
+// classifier can look at a trend without every rApp reimplementing the ring.
 type History[K any] struct {
 	samples []Sample[K]
 	limit   int

@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// SpecFile is the descriptor an rApp repository keeps at its root.
 const SpecFile = "rapp-package.yaml"
 
 // Spec declares everything needed to assemble the rApp package. It is written

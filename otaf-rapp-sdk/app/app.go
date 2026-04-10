@@ -39,6 +39,7 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/metrics"
 )
 
+// Component is any long-running part of an rApp started alongside the server.
 type Component interface {
 	Name() string
 	Start(ctx context.Context) error

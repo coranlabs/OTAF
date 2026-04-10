@@ -30,7 +30,6 @@ type statusError struct {
 }
 
 func (e *statusError) Error() string   { return "status error" }
-
 func (e *statusError) Retryable() bool { return e.status >= 500 }
 
 func TestSucceedsWithoutRetrying(t *testing.T) {

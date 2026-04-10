@@ -34,6 +34,7 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/errs"
 )
 
+// Format names an encoding this package understands.
 type Format string
 
 const (

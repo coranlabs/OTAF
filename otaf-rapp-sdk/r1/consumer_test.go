@@ -25,6 +25,9 @@ import (
 	"time"
 )
 
+// Responses mirror what the information coordinator actually returns, in
+// particular the consumer view of a type, whose schema field is named
+// differently from the producer view of the same type.
 type fakeICS struct {
 	mu       sync.Mutex
 	jobs     map[string]consumerJob

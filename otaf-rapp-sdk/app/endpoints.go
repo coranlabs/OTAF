@@ -22,6 +22,8 @@ import (
 	rappsdk "github.com/coranlabs/OTAF/otaf-rapp-sdk"
 )
 
+// registerBuiltins wires the endpoints the platform expects from every rApp.
+// They go on first so an rApp's own routes can never shadow a probe.
 func (a *App) registerBuiltins() {
 	a.router.HandleFunc("/health", a.handleHealth).Methods(http.MethodGet)
 	a.router.HandleFunc("/ready", a.handleReady).Methods(http.MethodGet)

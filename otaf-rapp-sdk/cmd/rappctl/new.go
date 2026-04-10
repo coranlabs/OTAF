@@ -24,6 +24,8 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/templates"
 )
 
+// Kubernetes and Helm both require this shape, and the name ends up in
+// resource names, chart names and service hostnames.
 var nameRule = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`)
 
 func runNew(args []string) error {

@@ -1,0 +1,6 @@
+bin/
+dist/
+*.csar
+*.tgz
+coverage.out
+/rappctl

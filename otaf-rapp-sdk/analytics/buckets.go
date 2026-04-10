@@ -19,6 +19,7 @@ import (
 	"time"
 )
 
+// Bucket is one slot of a rolling window.
 type Bucket struct {
 	Start  time.Time          `json:"start"`
 	Values map[string]float64 `json:"values"`

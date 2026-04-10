@@ -61,7 +61,6 @@ func (r *Report) OK() bool {
 }
 
 func (r *Report) Errors() []Finding   { return r.filter(SeverityError) }
-
 func (r *Report) Warnings() []Finding { return r.filter(SeverityWarn) }
 
 func (r *Report) filter(s Severity) []Finding {

@@ -23,6 +23,8 @@ import (
 	"unicode"
 )
 
+// PackagedChart is one chart the built package carries, and where the platform
+// will try to put it.
 type PackagedChart struct {
 	Name            string
 	Version         string

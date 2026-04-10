@@ -21,6 +21,9 @@ import (
 	"time"
 )
 
+// deployItem is one entry of the ASD artifacts block. The platform reads the
+// deployment items from here, not from the properties block, and refuses to
+// prime a package where the list comes out empty.
 type deployItem struct {
 	Key             string
 	File            string

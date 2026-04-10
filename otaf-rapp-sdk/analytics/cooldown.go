@@ -19,6 +19,18 @@ import (
 	"time"
 )
 
+// Cooldown stops an rApp acting on the same thing again before its last action
+// has had a chance to take effect. Without one, an rApp reacting to a KPI it
+// influences will act on every report until the KPI catches up, and then find
+// it has overshot.
+//
+// The same guard serves alerting: it is what keeps one condition from
+// producing a notification per report.
+//
+// Time is passed in rather than read from a clock, because the two are not the
+// same. An rApp acting live wants wall time; one working through data whose
+// timestamps drive the decision wants the sample's time. Only the caller knows
+// which.
 type Cooldown struct {
 	mu     sync.Mutex
 	period time.Duration

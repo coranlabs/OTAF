@@ -21,6 +21,7 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/analytics"
 )
 
+// What an rApp measures. The SDK never looks inside it.
 type load struct {
 	Used float64
 }

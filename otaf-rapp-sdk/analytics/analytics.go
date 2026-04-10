@@ -27,6 +27,9 @@ package analytics
 
 import "time"
 
+// State is a verdict's name. An rApp defines its own; the only value with a
+// meaning here is StateUnknown, which is what an entity has before it has been
+// classified.
 type State string
 
 const StateUnknown State = "UNKNOWN"

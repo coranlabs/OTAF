@@ -33,6 +33,8 @@ import (
 	"strings"
 )
 
+// Category is where a failure came from, which is what decides what to do
+// about it.
 type Category string
 
 const (
@@ -189,11 +191,8 @@ func (e *Error) Retryable() bool { return e.retryable }
 // ErrorCategory, ErrorCode and HTTPStatus let other packages classify their
 // own errors without importing this one.
 func (e *Error) ErrorCategory() string { return string(e.Category) }
-
 func (e *Error) ErrorCode() string     { return e.Code }
-
 func (e *Error) ErrorSeverity() string { return string(e.Severity) }
-
 func (e *Error) HTTPStatus() int       { return e.Status }
 
 // Transient marks a failure as worth another attempt, against the default for

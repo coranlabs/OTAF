@@ -28,6 +28,9 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/sdnr"
 )
 
+// PolicyManagement is a stand-in for the A1 policy management service. It
+// records what the rApp placed so a test can assert on the decision rather
+// than on the transport.
 type PolicyManagement struct {
 	mu       sync.Mutex
 	policies map[string]a1.Policy

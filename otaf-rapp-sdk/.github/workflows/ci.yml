@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go mod tidy is up to date
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Test with the race detector
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+
+  scaffold:
+    name: Scaffold end to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: sdk
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: sdk/go.sum
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # A generated rApp has to compile, package and validate without anyone
+      # editing it. This is the promise `rappctl new` makes.
+      - name: Generate an rApp
+        run: |
+          cd sdk
+          go run ./cmd/rappctl new ci-rapp \
+            --module github.com/coranlabs/ci-rapp \
+            --out "$RUNNER_TEMP/ci-rapp" \
+            --sdk-path "$PWD"
+
+      - name: It compiles
+        run: |
+          cd "$RUNNER_TEMP/ci-rapp"
+          go mod tidy
+          go build ./...
+          go vet ./...
+
+      - name: Its chart is valid
+        run: helm lint "$RUNNER_TEMP/ci-rapp/deploy/helm/ci-rapp"
+
+      - name: It packages and passes onboarding validation
+        run: |
+          cd "$RUNNER_TEMP/ci-rapp"
+          go run github.com/coranlabs/OTAF/otaf-rapp-sdk/cmd/rappctl package
+          go run github.com/coranlabs/OTAF/otaf-rapp-sdk/cmd/rappctl validate dist/ci-rapp-0.1.0.csar
+
+      - name: It serves the platform endpoints
+        run: |
+          cd "$RUNNER_TEMP/ci-rapp"
+          go build -o rapp ./cmd/ci-rapp
+          CONFIG_PATH=config/rapp.yaml HTTP_PORT=18080 ./rapp &
+          for i in $(seq 1 30); do
+            curl -sf localhost:18080/health >/dev/null && break
+            sleep 1
+          done
+          curl -sf localhost:18080/health
+          curl -sf localhost:18080/ready
+          curl -sf localhost:18080/metrics | grep -q '^rapp_build_info' \
+            || { echo "metrics endpoint is not Prometheus exposition"; exit 1; }
+          kill %1

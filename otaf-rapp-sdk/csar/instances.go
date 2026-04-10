@@ -20,6 +20,7 @@ import (
 	"fmt"
 )
 
+// UUID returns a random RFC 4122 version 4 identifier.
 func UUID() (string, error) {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {

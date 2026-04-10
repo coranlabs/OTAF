@@ -29,6 +29,7 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/r1"
 )
 
+// Logger discards output, so a failing test shows assertions rather than logs.
 func Logger() *logrus.Logger {
 	l := logrus.New()
 	l.SetOutput(discard{})

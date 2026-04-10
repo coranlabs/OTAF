@@ -29,6 +29,8 @@ import (
 	"github.com/coranlabs/OTAF/otaf-rapp-sdk/errs"
 )
 
+// Rapp is the configuration block every SDK-built rApp carries. Embed it in
+// your own config struct and add whatever your logic needs alongside it.
 type Rapp struct {
 	Name    string `yaml:"name"`
 	Version string `yaml:"version"`

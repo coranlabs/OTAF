@@ -21,6 +21,9 @@ import (
 	"time"
 )
 
+// A VES event carrying the perf3gpp domain. The collector delivers one event,
+// a batch under eventList, or a bare array, depending on how it was
+// configured, so all three are accepted.
 type vesEnvelope struct {
 	Event     *vesEvent  `json:"event"`
 	EventList []vesEvent `json:"eventList"`

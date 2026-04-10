@@ -19,6 +19,9 @@ import (
 	"strings"
 )
 
+// The measurement collection file of 3GPP TS 32.435. Element and attribute
+// names are matched on their local part, so a file carrying the 3GPP
+// namespace and one carrying none both decode.
 type measCollecFile struct {
 	XMLName    xml.Name   `xml:"measCollecFile"`
 	FileHeader fileHeader `xml:"fileHeader"`

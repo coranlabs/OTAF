@@ -16,6 +16,13 @@ package analytics
 
 import "sync"
 
+// Journal is a bounded record of what an rApp decided or noticed, kept so an
+// operator can see the recent past without a database. It is safe for
+// concurrent use.
+//
+// It is deliberately in memory and deliberately finite: this is the last N
+// events for a human looking at a running rApp, not an audit trail. Anything
+// that must survive a restart belongs in the time-series store.
 type Journal[T any] struct {
 	mu      sync.RWMutex
 	entries []T
