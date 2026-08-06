@@ -92,11 +92,24 @@ a1: re-register after the platform forgets the service
 csar: reject deployment items declared under properties
 ```
 
-Releases are Git tags of the form `v1.1.0`. The SDK is 1.x, so anything
-exported keeps working for the life of the major version: an addition is a
-minor release, a fix is a patch, and a change that cannot preserve an existing
-signature waits for 2.0.0 — which under Go's module rules moves the import path
-to `/v2` and is therefore a deliberate, announced event rather than a tidy-up.
+This SDK is one module among several in the repository, so its releases are Git
+tags carrying the directory prefix:
+
+```bash
+git tag otaf-rapp-sdk/v1.1.0
+git push --tags
+```
+
+A bare `v1.1.0` tag means nothing to a submodule; `go get` then reports no
+matching version even though the tag is plainly there. Each SDK in the
+repository versions independently, which is the point: a break in one does not
+force a major version on the others.
+
+The SDK is 1.x, so anything exported keeps working for the life of the major
+version: an addition is a minor release, a fix is a patch, and a change that
+cannot preserve an existing signature waits for 2.0.0 — which under Go's module
+rules moves the import path to `/v2` and is therefore a deliberate, announced
+event rather than a tidy-up.
 
 Update the version constant and the changelog in the release commit; the
 scaffold reads the version from the constant, so a generated rApp always asks

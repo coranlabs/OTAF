@@ -120,5 +120,8 @@ First release.
   otherwise revert the network for as long as the rApp takes to come back.
   Standing down is opt-in through `a1.DeregisterOnStop(true)`.
 
-[Unreleased]: https://github.com/coranlabs/OTAF/otaf-rapp-sdk/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/coranlabs/OTAF/otaf-rapp-sdk/releases/tag/v1.0.0
+Releases of this SDK are tagged `otaf-rapp-sdk/vX.Y.Z`, because it is one module
+among several in the repository.
+
+[Unreleased]: https://github.com/coranlabs/OTAF/compare/otaf-rapp-sdk/v1.0.0...HEAD
+[1.0.0]: https://github.com/coranlabs/OTAF/releases/tag/otaf-rapp-sdk%2Fv1.0.0
