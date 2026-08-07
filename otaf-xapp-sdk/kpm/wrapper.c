@@ -1049,3 +1049,39 @@ void e2sm_free_ric_indication_message(E2SM_KPM_IndicationMessage_t* indMsg) {
 	ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_IndicationMessage, indMsg);
 }
 
+
+E2SM_KPM_RANfunction_Description_t* e2sm_decode_ran_function_description(void *buffer, size_t buf_size) {
+	asn_dec_rval_t decode_result;
+	E2SM_KPM_RANfunction_Description_t *rfd = 0;
+	decode_result = asn_decode(0, ATS_ALIGNED_BASIC_PER,
+		&asn_DEF_E2SM_KPM_RANfunction_Description, (void **)&rfd, buffer, buf_size);
+	if (decode_result.code == RC_OK) {
+		return rfd;
+	}
+	ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_RANfunction_Description, rfd);
+	return NULL;
+}
+
+void e2sm_free_ran_function_description(E2SM_KPM_RANfunction_Description_t* rfd) {
+	ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_RANfunction_Description, rfd);
+}
+
+int e2sm_rfd_report_style_count(E2SM_KPM_RANfunction_Description_t* rfd) {
+	return rfd->ric_ReportStyle_List ? rfd->ric_ReportStyle_List->list.count : 0;
+}
+
+RIC_ReportStyle_Item_t* e2sm_rfd_report_style(E2SM_KPM_RANfunction_Description_t* rfd, int i) {
+	return rfd->ric_ReportStyle_List->list.array[i];
+}
+
+int e2sm_style_meas_count(RIC_ReportStyle_Item_t* s) {
+	return s->measInfo_Action_List.list.count;
+}
+
+MeasurementInfo_Action_Item_t* e2sm_style_meas(RIC_ReportStyle_Item_t* s, int i) {
+	return s->measInfo_Action_List.list.array[i];
+}
+
+long e2sm_meas_id(MeasurementInfo_Action_Item_t* m) {
+	return m->measID ? *m->measID : -1;
+}

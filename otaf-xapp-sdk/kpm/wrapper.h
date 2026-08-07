@@ -1,6 +1,10 @@
 #ifndef	_WRAPPER_H_
 #define	_WRAPPER_H_
 
+#include <E2SM-KPM-RANfunction-Description.h>
+#include <RIC-ReportStyle-Item.h>
+#include <MeasurementInfo-Action-Item.h>
+#include <RANfunction-Name.h>
 #include <E2SM-KPM-EventTriggerDefinition.h>
 #include <E2SM-KPM-EventTriggerDefinition-Format1.h>
 #include <E2SM-KPM-ActionDefinition.h>
@@ -134,5 +138,15 @@ E2SM_KPM_IndicationHeader_t* e2sm_decode_ric_indication_header(void *buffer, siz
 void e2sm_free_ric_indication_header(E2SM_KPM_IndicationHeader_t* indHdr);
 E2SM_KPM_IndicationMessage_t* e2sm_decode_ric_indication_message(void *buffer, size_t buf_size);
 void e2sm_free_ric_indication_message(E2SM_KPM_IndicationMessage_t* indMsg);
+
+
+/* RAN function description: what a RAN advertises it can report. */
+E2SM_KPM_RANfunction_Description_t* e2sm_decode_ran_function_description(void *buffer, size_t buf_size);
+void e2sm_free_ran_function_description(E2SM_KPM_RANfunction_Description_t* rfd);
+int  e2sm_rfd_report_style_count(E2SM_KPM_RANfunction_Description_t* rfd);
+RIC_ReportStyle_Item_t* e2sm_rfd_report_style(E2SM_KPM_RANfunction_Description_t* rfd, int i);
+int  e2sm_style_meas_count(RIC_ReportStyle_Item_t* s);
+MeasurementInfo_Action_Item_t* e2sm_style_meas(RIC_ReportStyle_Item_t* s, int i);
+long e2sm_meas_id(MeasurementInfo_Action_Item_t* m);
 
 #endif /* _WRAPPER_H_ */
