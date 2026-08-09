@@ -149,4 +149,11 @@ int  e2sm_style_meas_count(RIC_ReportStyle_Item_t* s);
 MeasurementInfo_Action_Item_t* e2sm_style_meas(RIC_ReportStyle_Item_t* s, int i);
 long e2sm_meas_id(MeasurementInfo_Action_Item_t* m);
 
+
+/* Action definition: read back what an encoded subscription asks for. */
+E2SM_KPM_ActionDefinition_t* e2sm_decode_ric_action_definition(void *buffer, size_t buf_size);
+void e2sm_free_ric_action_definition(E2SM_KPM_ActionDefinition_t* ad);
+long e2sm_ad_style_type(E2SM_KPM_ActionDefinition_t* ad);
+int  e2sm_ad_format(E2SM_KPM_ActionDefinition_t* ad);
+
 #endif /* _WRAPPER_H_ */

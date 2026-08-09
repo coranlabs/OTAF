@@ -1085,3 +1085,32 @@ MeasurementInfo_Action_Item_t* e2sm_style_meas(RIC_ReportStyle_Item_t* s, int i)
 long e2sm_meas_id(MeasurementInfo_Action_Item_t* m) {
 	return m->measID ? *m->measID : -1;
 }
+
+E2SM_KPM_ActionDefinition_t* e2sm_decode_ric_action_definition(void *buffer, size_t buf_size) {
+	asn_dec_rval_t decode_result;
+	E2SM_KPM_ActionDefinition_t *ad = 0;
+	decode_result = asn_decode(0, ATS_ALIGNED_BASIC_PER,
+		&asn_DEF_E2SM_KPM_ActionDefinition, (void **)&ad, buffer, buf_size);
+	if (decode_result.code == RC_OK) {
+		return ad;
+	}
+	ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, ad);
+	return NULL;
+}
+
+void e2sm_free_ric_action_definition(E2SM_KPM_ActionDefinition_t* ad) {
+	ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, ad);
+}
+
+long e2sm_ad_style_type(E2SM_KPM_ActionDefinition_t* ad) {
+	return ad->ric_Style_Type;
+}
+
+int e2sm_ad_format(E2SM_KPM_ActionDefinition_t* ad) {
+	switch (ad->actionDefinition_formats.present) {
+	case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format1: return 1;
+	case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format2: return 2;
+	case E2SM_KPM_ActionDefinition__actionDefinition_formats_PR_actionDefinition_Format3: return 3;
+	default: return 0;
+	}
+}
