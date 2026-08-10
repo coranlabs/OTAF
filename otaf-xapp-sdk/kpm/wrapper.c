@@ -811,6 +811,13 @@ ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, 
         eventTriggerDef->eventDefinition_formats.present = E2SM_KPM_EventTriggerDefinition__eventDefinition_formats_PR_eventDefinition_Format1;
         eventTriggerDef->eventDefinition_formats.choice.eventDefinition_Format1 = innerDef;
 
+        /* Format1 carries a single reporting period, which is mandatory. */
+        if(event_trigger_count < 1 || !RT_periods) {
+                ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
+                return -1;
+        }
+        innerDef->reportingPeriod = RT_periods[0];
+
         // struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List *policyTestList = (struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List *)calloc(1, sizeof(struct E2SM_KPM_EventTriggerDefinition_Format1__policyTest_List));
         // innerDef->policyTest_List = policyTestList;
 
