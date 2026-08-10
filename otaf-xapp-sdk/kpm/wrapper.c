@@ -341,28 +341,24 @@ struct encode_act_Def_result encode_action_Definition(const char *hex_values, in
 
 
 }
-size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, size_t *buf_size, const char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR) {
+ssize_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, size_t *buf_size, const char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR) {
         E2SM_KPM_ActionDefinition_t *actionDef = (E2SM_KPM_ActionDefinition_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_t));
         if (!actionDef) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
         E2SM_KPM_ActionDefinition_Format1_t *actionDefFor1 = (E2SM_KPM_ActionDefinition_Format1_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_Format1_t));
         if (!actionDefFor1) {
                 ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
         CGI_t *cellGlobal = (CGI_t *)calloc(1, sizeof(CGI_t));
         if (!cellGlobal) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
         NR_CGI_t *nrCGIs = (NR_CGI_t *)calloc(1, sizeof(NR_CGI_t));
         if (!nrCGIs) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
@@ -416,14 +412,12 @@ size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, siz
                 int result1 = ASN_SEQUENCE_ADD(&infoItem[index]->labelInfoList, L_Item[0]);
                 if (result1==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory to add labelInfoList %s",strerror(errno));
                         return -1;
                 }
 
                 int result2 = ASN_SEQUENCE_ADD(&actionDefFor1->measInfoList, infoItem[index]);
                 if (result2==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory to add measInfoList %s",strerror(errno));
                         return -1;
                 }
 
@@ -446,7 +440,6 @@ size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, siz
 
         int ret_constr = asn_check_constraints(&asn_DEF_E2SM_KPM_ActionDefinition, (void *) actionDef, errbuf, &errbuf_len);
         if(ret_constr){
-                fprintf(stderr,"Constraints failed for encoding subscription request, %s", strerror(errno));
                 return -1;
         }
         //ATS_ALIGNED_BASIC_PER
@@ -455,11 +448,9 @@ size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, siz
         asn_enc_rval_t encode_result = asn_encode_to_buffer(0,ATS_ALIGNED_CANONICAL_PER,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef, buf, *buf_size);
         //asn_enc_rval_t encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_ActionDefinition, NULL,actionDef, buf, *buf_size);
         if (encode_result.encoded == -1) {
-                fprintf(stderr, "Cannot encode %s: %s\n", encode_result.failed_type->name, strerror(errno));
                 return -1;
         }
         else {
-                fprintf(stderr, "successfully\n");
                //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
                 FILE *fp = fopen("sandeep.bin", "wb");
@@ -467,18 +458,14 @@ size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, siz
                 asn_enc_rval_t ec =asn_encode(0, ATS_ALIGNED_CANONICAL_PER, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef, write_out, fp);
                 fclose(fp);
                 if(ec.encoded ==-1) {
-                        fprintf(stderr, "Could not encode action def (at %s)\n”,ec.failed_type ? ec.failed_type->name : ”unknown");
                        // exit(1);
                 } else {
-                        fprintf(stderr, "Created sandeep binary  with ATS_ALIGNED_CANONICAL_PER encoded action def\n");
                 }
                 FILE *fp2 = fopen("sandy.txt", "w");
                 int r=asn_fprint(fp2,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef);
                 fclose(fp2);
                 if (r==-1)
-                         fprintf(stderr, "failed asn_fprint\n");
                 else
-                         fprintf(stderr, "successfull asn_fprint\n");
                 */
 
 
@@ -487,28 +474,24 @@ size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, siz
         }
 }
 
-size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR) {
+ssize_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR) {
         E2SM_KPM_ActionDefinition_t *actionDef = (E2SM_KPM_ActionDefinition_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_t));
         if (!actionDef) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
         E2SM_KPM_ActionDefinition_Format1_t *actionDefFor1 = (E2SM_KPM_ActionDefinition_Format1_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_Format1_t));
         if (!actionDefFor1) {
                 ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
         CGI_t *cellGlobal = (CGI_t *)calloc(1, sizeof(CGI_t));
         if (!cellGlobal) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
         NR_CGI_t *nrCGIs = (NR_CGI_t *)calloc(1, sizeof(NR_CGI_t));
         if (!nrCGIs) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
@@ -557,14 +540,12 @@ size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_
                 int result1 = ASN_SEQUENCE_ADD(&infoItem[index]->labelInfoList, L_Item[0]);
                 if (result1==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory to add labelInfoList %s",strerror(errno));
                         return -1;
                 }
 
                 int result2 = ASN_SEQUENCE_ADD(&actionDefFor1->measInfoList, infoItem[index]);
                 if (result2==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory to add measInfoList %s",strerror(errno));
                         return -1;
                 }
 
@@ -587,7 +568,6 @@ size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_
 
         int ret_constr = asn_check_constraints(&asn_DEF_E2SM_KPM_ActionDefinition, (void *) actionDef, errbuf, &errbuf_len);
         if(ret_constr){
-                fprintf(stderr,"Constraints failed for encoding subscription request, %s", strerror(errno));
                 return -1;
         }
         //ATS_ALIGNED_BASIC_PER
@@ -596,11 +576,9 @@ size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_
         asn_enc_rval_t encode_result = asn_encode_to_buffer(0,ATS_ALIGNED_CANONICAL_PER,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef, buf, *buf_size);
         //asn_enc_rval_t encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_ActionDefinition, NULL,actionDef, buf, *buf_size);
         if (encode_result.encoded == -1) {
-                fprintf(stderr, "Cannot encode %s: %s\n", encode_result.failed_type->name, strerror(errno));
                 return -1;
         }
         else {
-                fprintf(stderr, "successfully\n");
                 //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
                 FILE *fp = fopen("sandeep.bin", "wb");
@@ -608,35 +586,29 @@ size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_
                 asn_enc_rval_t ec =asn_encode(0, ATS_ALIGNED_CANONICAL_PER, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef, write_out, fp);
                 fclose(fp);
                 if(ec.encoded ==-1) {
-                        fprintf(stderr, "Could not encode action def (at %s)\n”,ec.failed_type ? ec.failed_type->name : ”unknown");
                         exit(1);
                 } else {
-                        fprintf(stderr, "Created sandeep binary  with ATS_ALIGNED_CANONICAL_PER encoded action def\n");
                 }
                 FILE *fp2 = fopen("sandy.txt", "w");
                 int r=asn_fprint(fp2,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef);
                 fclose(fp2);
                 if (r==-1)
-                         fprintf(stderr, "failed asn_fprint\n");
                 else
-                         fprintf(stderr, "successfull asn_fprint\n");
                 */
 
                 return encode_result.encoded;
         }
 }
 
-size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, size_t *buf_size, char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod) {
+ssize_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, size_t *buf_size, char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod) {
         E2SM_KPM_ActionDefinition_t *actionDef = (E2SM_KPM_ActionDefinition_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_t));
         if (!actionDef) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
         E2SM_KPM_ActionDefinition_Format3_t *actionDefFor3 = (E2SM_KPM_ActionDefinition_Format3_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_Format3_t));
         if (!actionDefFor3) {
                 ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
@@ -669,14 +641,12 @@ size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, siz
                 int result1 = ASN_SEQUENCE_ADD(&CondItem[index]->matchingCond, M_Item[0]);
                 if (result1==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory for matchingCond to add matchingCondItem_t %s",strerror(errno));
                         return -1;
                 }
 
                 int result2 = ASN_SEQUENCE_ADD(&actionDefFor3->measCondList, CondItem[index]);
                 if (result2==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory for measCondList to add MeasurementCondItem_t %s",strerror(errno));
                         return -1;
                 }
 
@@ -698,7 +668,6 @@ size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, siz
 
         int ret_constr = asn_check_constraints(&asn_DEF_E2SM_KPM_ActionDefinition, (void *) actionDef, errbuf, &errbuf_len);
         if(ret_constr){
-                fprintf(stderr,"Constraints failed for encoding subscription request, %s", strerror(errno));
                 return -1;
         }
         //ATS_ALIGNED_BASIC_PER
@@ -707,11 +676,9 @@ size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, siz
         asn_enc_rval_t encode_result = asn_encode_to_buffer(0,ATS_ALIGNED_CANONICAL_PER,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef, buf, *buf_size);
         //asn_enc_rval_t encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_ActionDefinition, NULL,actionDef, buf, *buf_size);
         if (encode_result.encoded == -1) {
-                fprintf(stderr, "Cannot encode %s: %s\n", encode_result.failed_type->name, strerror(errno));
                 return -1;
         }
         else {
-                fprintf(stderr, "successfully\n");
 
                 //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
@@ -720,33 +687,27 @@ size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, siz
                 asn_enc_rval_t ec =asn_encode(0, ATS_ALIGNED_CANONICAL_PER, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef, write_out, fp);
                 fclose(fp);
                 if(ec.encoded ==-1) {
-                        fprintf(stderr, "Could not encode action def (at %s)\n”,ec.failed_type ? ec.failed_type->name : ”unknown");
                         exit(1);
                 } else {
-                        fprintf(stderr, "Created sandeep binary  with ATS_ALIGNED_CANONICAL_PER encoded action def\n");
                 }
                 FILE *fp2 = fopen("sandy.txt", "w");
                 int r=asn_fprint(fp2,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef);
                 fclose(fp2);
                 if (r==-1)
-                         fprintf(stderr, "failed asn_fprint\n");
                 else
-                         fprintf(stderr, "successfull asn_fprint\n");
                 */
                 return encode_result.encoded;
         }
 }
-size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod) {
+ssize_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod) {
         E2SM_KPM_ActionDefinition_t *actionDef = (E2SM_KPM_ActionDefinition_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_t));
         if (!actionDef) {
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
         E2SM_KPM_ActionDefinition_Format3_t *actionDefFor3 = (E2SM_KPM_ActionDefinition_Format3_t *)calloc(1, sizeof(E2SM_KPM_ActionDefinition_Format3_t));
         if (!actionDefFor3) {
                 ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
-                fprintf(stderr, "alloc RIC ActionDefinition failed\n");
                 return -1;
         }
 
@@ -777,14 +738,12 @@ size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_
                 int result1 = ASN_SEQUENCE_ADD(&CondItem[index]->matchingCond, M_Item[0]);
                 if (result1==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory for matchingCond to add matchingCondItem_t %s",strerror(errno));
                         return -1;
                 }
 
                 int result2 = ASN_SEQUENCE_ADD(&actionDefFor3->measCondList, CondItem[index]);
                 if (result2==-1)
                 {
-                        fprintf(stderr,"Unable to assign memory for measCondList to add MeasurementCondItem_t %s",strerror(errno));
                         return -1;
                 }
 
@@ -807,7 +766,6 @@ size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_
 
         int ret_constr = asn_check_constraints(&asn_DEF_E2SM_KPM_ActionDefinition, (void *) actionDef, errbuf, &errbuf_len);
         if(ret_constr){
-                fprintf(stderr,"Constraints failed for encoding subscription request, %s", strerror(errno));
                 return -1;
         }
         //ATS_ALIGNED_BASIC_PER
@@ -816,11 +774,9 @@ size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_
         asn_enc_rval_t encode_result = asn_encode_to_buffer(0,ATS_ALIGNED_CANONICAL_PER,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef, buf, *buf_size);
         //asn_enc_rval_t encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_ActionDefinition, NULL,actionDef, buf, *buf_size);
         if (encode_result.encoded == -1) {
-                fprintf(stderr, "Cannot encode %s: %s\n", encode_result.failed_type->name, strerror(errno));
                 return -1;
         }
         else {
-                fprintf(stderr, "successfully\n");
                 //xer_fprint(stdout, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef);
                 /*
                 FILE *fp = fopen("sandeep.bin", "wb");
@@ -828,18 +784,14 @@ size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_
                 asn_enc_rval_t ec =asn_encode(0, ATS_ALIGNED_CANONICAL_PER, &asn_DEF_E2SM_KPM_ActionDefinition, actionDef, write_out, fp);
                 fclose(fp);
                 if(ec.encoded ==-1) {
-                        fprintf(stderr, "Could not encode action def (at %s)\n”,ec.failed_type ? ec.failed_type->name : ”unknown");
                         exit(1);
                 } else {
-                        fprintf(stderr, "Created sandeep binary  with ATS_ALIGNED_CANONICAL_PER encoded action def\n");
                 }
                 FILE *fp2 = fopen("sandy.txt", "w");
                 int r=asn_fprint(fp2,&asn_DEF_E2SM_KPM_ActionDefinition,actionDef);
                 fclose(fp2);
                 if (r==-1)
-                         fprintf(stderr, "failed asn_fprint\n");
                 else
-                         fprintf(stderr, "successfull asn_fprint\n");
                 */
                 return encode_result.encoded;
         }
@@ -847,13 +799,11 @@ size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_
 ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, size_t event_trigger_count, long *RT_periods) {
         E2SM_KPM_EventTriggerDefinition_t *eventTriggerDef = (E2SM_KPM_EventTriggerDefinition_t *)calloc(1, sizeof(E2SM_KPM_EventTriggerDefinition_t));
         if(!eventTriggerDef) {
-                fprintf(stderr, "Alloc EventTriggerDefinition failed\n");
                 return -1;
         }
 
         E2SM_KPM_EventTriggerDefinition_Format1_t *innerDef = (E2SM_KPM_EventTriggerDefinition_Format1_t *)calloc(1, sizeof(E2SM_KPM_EventTriggerDefinition_Format1_t));
         if(!innerDef) {
-                fprintf(stderr, "alloc EventTriggerDefinition Format1 failed\n");
                 ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
                 return -1;
         }
@@ -877,7 +827,6 @@ ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, 
     encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_EventTriggerDefinition, NULL, eventTriggerDef, buffer, buf_size);
     ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
     if(encode_result.encoded == -1) {
-        fprintf(stderr, "Cannot encode %s: %s\n", encode_result.failed_type->name, strerror(errno));
         return -1;
     } else {
             return encode_result.encoded;

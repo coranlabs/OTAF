@@ -126,13 +126,13 @@ void freeMemorydRanCellUeKpi(ranCellUeKpi_t res);
 
 struct encode_act_Def_result encode_action_Definition(const char *hex_values, int determine);
 
-size_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, size_t *buf_size, const char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
+ssize_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, size_t *buf_size, const char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
 
-size_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
+ssize_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
 
-size_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, size_t *buf_size, char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
+ssize_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, size_t *buf_size, char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
 
-size_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
+ssize_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
 
 E2SM_KPM_IndicationHeader_t* e2sm_decode_ric_indication_header(void *buffer, size_t buf_size);
 void e2sm_free_ric_indication_header(E2SM_KPM_IndicationHeader_t* indHdr);
