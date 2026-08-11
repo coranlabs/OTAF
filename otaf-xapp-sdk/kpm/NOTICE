@@ -13,7 +13,23 @@ E2SM-KPM message definitions
 wrapper.c, wrapper.h
     Derived from O-RAN Software Community ric-app/kpimon-go, Apache 2.0.
 
-    Extended here with e2sm_decode_ran_function_description and its accessors,
-    which the upstream wrapper does not provide. Additions follow the file's
-    existing conventions and are Apache 2.0, consistent with the rest of this
-    SDK.
+    Changes made here, all Apache 2.0:
+
+    Added, because the upstream wrapper has no equivalent:
+      - e2sm_decode_ran_function_description and its accessors, so an xApp can
+        read what a RAN advertises rather than assume it.
+      - e2sm_decode_ric_action_definition and its accessors, so an encoded
+        subscription can be read back and checked.
+
+    Fixed, because a library must not do these things:
+      - Encoders wrote progress and failure text to stderr, including on
+        success. Removed from the functions this package calls.
+      - The action definition encoders returned -1 from a size_t, which reaches
+        the caller as a very large positive number. They now return ssize_t,
+        matching the event trigger encoder in the same file.
+      - The event trigger encoder never assigned the reporting period it is
+        given, leaving a mandatory field at zero so encoding always failed its
+        constraint. It now uses the period passed to it. Upstream does not call
+        this function; its own xApp sends a hard-coded byte sequence instead.
+
+    The message construction is otherwise unchanged.
