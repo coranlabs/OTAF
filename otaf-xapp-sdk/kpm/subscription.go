@@ -143,6 +143,20 @@ func encodeActionFormat3(names []string, style int, periodMs int64) ([]byte, err
 	return buf[:n], nil
 }
 
+// decodeEventTrigger reads back an encoded event trigger, reporting the period
+// it asks the RAN to report on.
+func decodeEventTrigger(raw []byte) (periodMs uint64, ok bool) {
+	if len(raw) == 0 {
+		return 0, false
+	}
+	etd := C.e2sm_decode_ric_event_trigger_definition(unsafe.Pointer(&raw[0]), C.size_t(len(raw)))
+	if etd == nil {
+		return 0, false
+	}
+	defer C.e2sm_free_ric_event_trigger_definition(etd)
+	return uint64(C.e2sm_etd_reporting_period(etd)), true
+}
+
 // decodeActionDefinition reads back an encoded action definition, reporting the
 // report style it carries and which format it used.
 func decodeActionDefinition(raw []byte) (style, format int, ok bool) {

@@ -104,3 +104,40 @@ func TestSubscribeRejectsBadRequests(t *testing.T) {
 		})
 	}
 }
+
+// The event trigger is encoded by a different call from the action definition,
+// so it is checked separately: the RAN has to read back the period it was
+// given, and the encoded length has to be the length of the message.
+func TestEventTriggerCarriesThePeriod(t *testing.T) {
+	fn, err := DecodeRANFunction(ranFunction(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := fn.Subscribe(Request{
+		Style:        1,
+		Measurements: []string{"DRB.RlcSduTransmittedVolumeDL"},
+		Period:       time.Second,
+		Cell:         &testCell,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	period, ok := decodeEventTrigger(sub.EventTrigger)
+	if !ok {
+		t.Fatal("event trigger does not decode")
+	}
+	if period != 1000 {
+		t.Errorf("reporting period = %d ms, want 1000", period)
+	}
+	if trailing := trailingZeros(sub.EventTrigger); trailing > 1 {
+		t.Errorf("event trigger has %d trailing zero bytes, so its length is wrong", trailing)
+	}
+}
+
+func trailingZeros(b []byte) int {
+	n := 0
+	for i := len(b) - 1; i >= 0 && b[i] == 0; i-- {
+		n++
+	}
+	return n
+}
