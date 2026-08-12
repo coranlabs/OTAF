@@ -831,7 +831,7 @@ ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, 
         // }
 
         asn_enc_rval_t encode_result;
-    encode_result = uper_encode_to_buffer(&asn_DEF_E2SM_KPM_EventTriggerDefinition, NULL, eventTriggerDef, buffer, buf_size);
+    encode_result = asn_encode_to_buffer(0, ATS_ALIGNED_CANONICAL_PER, &asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef, buffer, buf_size);
     ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, eventTriggerDef);
     if(encode_result.encoded == -1) {
         return -1;
