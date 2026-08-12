@@ -156,4 +156,10 @@ void e2sm_free_ric_action_definition(E2SM_KPM_ActionDefinition_t* ad);
 long e2sm_ad_style_type(E2SM_KPM_ActionDefinition_t* ad);
 int  e2sm_ad_format(E2SM_KPM_ActionDefinition_t* ad);
 
+
+/* Event trigger: read back an encoded trigger to check its reporting period. */
+E2SM_KPM_EventTriggerDefinition_t* e2sm_decode_ric_event_trigger_definition(void *buffer, size_t buf_size);
+void e2sm_free_ric_event_trigger_definition(E2SM_KPM_EventTriggerDefinition_t* etd);
+unsigned long e2sm_etd_reporting_period(E2SM_KPM_EventTriggerDefinition_t* etd);
+
 #endif /* _WRAPPER_H_ */

@@ -1070,3 +1070,27 @@ int e2sm_ad_format(E2SM_KPM_ActionDefinition_t* ad) {
 	default: return 0;
 	}
 }
+
+E2SM_KPM_EventTriggerDefinition_t* e2sm_decode_ric_event_trigger_definition(void *buffer, size_t buf_size) {
+	asn_dec_rval_t decode_result;
+	E2SM_KPM_EventTriggerDefinition_t *etd = 0;
+	decode_result = asn_decode(0, ATS_ALIGNED_BASIC_PER,
+		&asn_DEF_E2SM_KPM_EventTriggerDefinition, (void **)&etd, buffer, buf_size);
+	if (decode_result.code == RC_OK) {
+		return etd;
+	}
+	ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, etd);
+	return NULL;
+}
+
+void e2sm_free_ric_event_trigger_definition(E2SM_KPM_EventTriggerDefinition_t* etd) {
+	ASN_STRUCT_FREE(asn_DEF_E2SM_KPM_EventTriggerDefinition, etd);
+}
+
+unsigned long e2sm_etd_reporting_period(E2SM_KPM_EventTriggerDefinition_t* etd) {
+	if (etd->eventDefinition_formats.present !=
+	    E2SM_KPM_EventTriggerDefinition__eventDefinition_formats_PR_eventDefinition_Format1) {
+		return 0;
+	}
+	return etd->eventDefinition_formats.choice.eventDefinition_Format1->reportingPeriod;
+}
