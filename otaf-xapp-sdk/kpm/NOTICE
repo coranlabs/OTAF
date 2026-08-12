@@ -20,6 +20,8 @@ wrapper.c, wrapper.h
         read what a RAN advertises rather than assume it.
       - e2sm_decode_ric_action_definition and its accessors, so an encoded
         subscription can be read back and checked.
+      - e2sm_decode_ric_event_trigger_definition and its accessor, for the
+        same reason.
 
     Fixed, because a library must not do these things:
       - Encoders wrote progress and failure text to stderr, including on
@@ -31,5 +33,9 @@ wrapper.c, wrapper.h
         given, leaving a mandatory field at zero so encoding always failed its
         constraint. It now uses the period passed to it. Upstream does not call
         this function; its own xApp sends a hard-coded byte sequence instead.
+      - The event trigger was encoded with unaligned PER while everything else
+        here, encoders and decoders alike, uses aligned PER. A RAN read a
+        reporting period of 1 ms where 1000 was asked for. The unaligned call
+        also reports its length in bits rather than bytes.
 
     The message construction is otherwise unchanged.
