@@ -13,15 +13,13 @@ import (
 	"unsafe"
 )
 
-// Cell identifies the cell a report style measures. Styles whose action format
-// is 1 report per cell and need one.
+// Cell identifies the cell a report style measures.
 type Cell struct {
 	PLMN [3]byte
 	NRCI [5]byte
 }
 
-// Subscription is the pair of encoded payloads an E2 subscription carries: when
-// the RAN should report, and what it should report.
+// Subscription is the pair of encoded payloads an E2 subscription carries.
 type Subscription struct {
 	EventTrigger []byte
 	ActionDef    []byte
@@ -42,10 +40,7 @@ var ErrEncode = errors.New("kpm: encode failed")
 const encodeBuf = 8192
 
 // Subscribe builds the payloads for a subscription against this RAN function.
-//
-// The action definition format is taken from the report style the RAN
-// advertised rather than assumed, because the formats differ per style and a
-// mismatch is rejected by the RAN.
+// The action definition format comes from the report style the RAN advertised.
 func (f *RANFunction) Subscribe(req Request) (*Subscription, error) {
 	style, ok := f.Style(req.Style)
 	if !ok {
@@ -143,8 +138,6 @@ func encodeActionFormat3(names []string, style int, periodMs int64) ([]byte, err
 	return buf[:n], nil
 }
 
-// decodeEventTrigger reads back an encoded event trigger, reporting the period
-// it asks the RAN to report on.
 func decodeEventTrigger(raw []byte) (periodMs uint64, ok bool) {
 	if len(raw) == 0 {
 		return 0, false
@@ -157,8 +150,6 @@ func decodeEventTrigger(raw []byte) (periodMs uint64, ok bool) {
 	return uint64(C.e2sm_etd_reporting_period(etd)), true
 }
 
-// decodeActionDefinition reads back an encoded action definition, reporting the
-// report style it carries and which format it used.
 func decodeActionDefinition(raw []byte) (style, format int, ok bool) {
 	if len(raw) == 0 {
 		return 0, 0, false
