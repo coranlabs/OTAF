@@ -1,5 +1,4 @@
-// Package kpm decodes E2SM-KPM, the service model a RAN uses to report
-// performance measurements over E2.
+// Package kpm decodes E2SM-KPM.
 package kpm
 
 /*
@@ -17,15 +16,15 @@ import (
 // ErrDecode is returned when a payload is not a valid E2SM-KPM structure.
 var ErrDecode = errors.New("kpm: decode failed")
 
-// Measurement is one counter a report style can carry.
+// Measurement is one counter a report style can carry. ID is nil when the RAN
+// names its measurements without identifying them.
 type Measurement struct {
-	ID   int
+	ID   *int
 	Name string
 }
 
 // ReportStyle is one way a RAN will report measurements. ActionFormat is the
-// action definition format a subscription must use for this style; sending any
-// other format is rejected by the RAN.
+// action definition format a subscription for this style must use.
 type ReportStyle struct {
 	Type         int
 	Name         string
@@ -34,8 +33,7 @@ type ReportStyle struct {
 	Measurements []Measurement
 }
 
-// RANFunction is what a RAN advertises it can do for E2SM-KPM. It is carried in
-// the RAN function definition that E2 setup publishes and the platform stores.
+// RANFunction is what a RAN advertises it can do for E2SM-KPM.
 type RANFunction struct {
 	ShortName    string
 	OID          string
@@ -53,7 +51,7 @@ func (f *RANFunction) Style(styleType int) (ReportStyle, bool) {
 	return ReportStyle{}, false
 }
 
-// DecodeRANFunction decodes a RAN function definition as published at E2 setup.
+// DecodeRANFunction decodes a RAN function definition published at E2 setup.
 func DecodeRANFunction(raw []byte) (*RANFunction, error) {
 	if len(raw) == 0 {
 		return nil, ErrDecode
@@ -80,10 +78,11 @@ func DecodeRANFunction(raw []byte) (*RANFunction, error) {
 		}
 		for j := 0; j < int(C.e2sm_style_meas_count(s)); j++ {
 			m := C.e2sm_style_meas(s, C.int(j))
-			style.Measurements = append(style.Measurements, Measurement{
-				ID:   int(C.e2sm_meas_id(m)),
-				Name: str(m.measName.buf, m.measName.size),
-			})
+			meas := Measurement{Name: str(m.measName.buf, m.measName.size)}
+			if id := int(C.e2sm_meas_id(m)); id >= 0 {
+				meas.ID = &id
+			}
+			style.Measurements = append(style.Measurements, meas)
 		}
 		fn.ReportStyles = append(fn.ReportStyles, style)
 	}
