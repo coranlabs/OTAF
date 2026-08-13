@@ -7,11 +7,9 @@ import (
 	"testing"
 )
 
-// ranFunction reads the fixture: a RAN function definition captured from a
-// gNB's E2 setup, as the platform stores it.
-func ranFunction(t *testing.T) []byte {
+func fixture(t *testing.T, name string) []byte {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/ranfunction.hex")
+	raw, err := os.ReadFile("testdata/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,6 +18,11 @@ func ranFunction(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return decoded
+}
+
+func ranFunction(t *testing.T) []byte {
+	t.Helper()
+	return fixture(t, "ranfunction.hex")
 }
 
 func TestDecodeRANFunction(t *testing.T) {
@@ -35,9 +38,6 @@ func TestDecodeRANFunction(t *testing.T) {
 	}
 }
 
-// Each report style demands its own action definition format. A subscription
-// built with the wrong one is rejected by the RAN, so the mapping has to come
-// from the RAN rather than from an assumption.
 func TestReportStyleActionFormats(t *testing.T) {
 	fn, err := DecodeRANFunction(ranFunction(t))
 	if err != nil {
@@ -70,10 +70,35 @@ func TestMeasurementsAreNamed(t *testing.T) {
 	}
 	for _, m := range style.Measurements {
 		if m.Name == "" {
-			t.Errorf("measurement %d has no name", m.ID)
+			t.Error("measurement has no name")
 		}
-		if m.ID <= 0 {
-			t.Errorf("measurement %q has id %d", m.Name, m.ID)
+		if m.ID == nil {
+			t.Errorf("measurement %q has no id", m.Name)
+		}
+	}
+}
+
+func TestDecodeCUCPRANFunction(t *testing.T) {
+	fn, err := DecodeRANFunction(fixture(t, "ranfunction-cucp.hex"))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if fn.OID != "1.3.6.1.4.1.53148.1.2.2.2" {
+		t.Errorf("oid = %q", fn.OID)
+	}
+	style, ok := fn.Style(1)
+	if !ok {
+		t.Fatal("style 1 missing")
+	}
+	if style.ActionFormat != 1 {
+		t.Errorf("action format = %d, want 1", style.ActionFormat)
+	}
+	for _, m := range style.Measurements {
+		if m.Name == "" {
+			t.Error("measurement has no name")
+		}
+		if m.ID != nil {
+			t.Errorf("measurement %q reports id %d, expected none", m.Name, *m.ID)
 		}
 	}
 }

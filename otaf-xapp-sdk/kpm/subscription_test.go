@@ -10,8 +10,6 @@ var testCell = Cell{
 	NRCI: [5]byte{0x00, 0x00, 0x00, 0x00, 0x10},
 }
 
-// A subscription is only useful if the RAN can read it back, so the encoded
-// action definition is decoded again rather than only checked for length.
 func TestSubscribeStyle1RoundTrips(t *testing.T) {
 	fn, err := DecodeRANFunction(ranFunction(t))
 	if err != nil {
@@ -105,9 +103,6 @@ func TestSubscribeRejectsBadRequests(t *testing.T) {
 	}
 }
 
-// The event trigger is encoded by a different call from the action definition,
-// so it is checked separately: the RAN has to read back the period it was
-// given, and the encoded length has to be the length of the message.
 func TestEventTriggerCarriesThePeriod(t *testing.T) {
 	fn, err := DecodeRANFunction(ranFunction(t))
 	if err != nil {
@@ -140,4 +135,47 @@ func trailingZeros(b []byte) int {
 		n++
 	}
 	return n
+}
+
+func TestSubscribeToCUCP(t *testing.T) {
+	fn, err := DecodeRANFunction(fixture(t, "ranfunction-cucp.hex"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := fn.Subscribe(Request{
+		Style:        1,
+		Measurements: []string{"RRC.ConnEstabAtt", "RRC.ConnEstabSucc", "RRC.ConnMean"},
+		Period:       time.Second,
+		Cell:         &testCell,
+	})
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	period, ok := decodeEventTrigger(sub.EventTrigger)
+	if !ok || period != 1000 {
+		t.Errorf("reporting period = %d ms (decoded ok=%v), want 1000", period, ok)
+	}
+	style, format, ok := decodeActionDefinition(sub.ActionDef)
+	if !ok {
+		t.Fatal("action definition does not decode")
+	}
+	if style != 1 || format != 1 {
+		t.Errorf("style = %d format = %d, want 1 and 1", style, format)
+	}
+}
+
+func TestSubscribeRejectsCounterTheCUCPLacks(t *testing.T) {
+	fn, err := DecodeRANFunction(fixture(t, "ranfunction-cucp.hex"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fn.Subscribe(Request{
+		Style:        1,
+		Measurements: []string{"DRB.RlcSduTransmittedVolumeDL"},
+		Period:       time.Second,
+		Cell:         &testCell,
+	})
+	if err == nil {
+		t.Error("want error for a counter this RAN does not report")
+	}
 }
