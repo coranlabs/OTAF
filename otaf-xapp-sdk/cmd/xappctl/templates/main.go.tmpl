@@ -1,0 +1,61 @@
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/coranlabs/OTAF/otaf-xapp-sdk/appmgr"
+)
+
+const (
+	name    = "{{.Name}}"
+	version = "{{.Version}}"
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	desc := appmgr.Descriptor{
+		Name:         name,
+		Version:      version,
+		HTTPPort:     {{.HTTPPort}},
+		RMRDataPort:  {{.RMRDataPort}},
+		RMRRoutePort: {{.RMRRoutePort}},
+		RxMessages:   []string{"RIC_INDICATION", "RIC_SUB_RESP", "RIC_SUB_FAILURE"},
+		TxMessages:   []string{"RIC_SUB_REQ"},
+	}
+
+	addr := os.Getenv("APPMGR_ADDR")
+	if addr == "" {
+		addr = "service-ricplt-appmgr-http.ricplt:8080"
+	}
+	platform := appmgr.New(addr)
+
+	if err := platform.Register(ctx, desc); err != nil {
+		log.Fatalf("register: %v", err)
+	}
+	log.Printf("registered as %s, rmr on %s", name, desc.RMREndpoint())
+
+	defer func() {
+		c, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := platform.Deregister(c, name); err != nil {
+			log.Printf("deregister: %v", err)
+		}
+	}()
+
+	// Subscribe to a RAN and act on what it reports. Start from
+	// kpm.DecodeRANFunction on what the platform holds for an E2 node, then
+	// RANFunction.Subscribe to build the payloads a subscription carries.
+	run(ctx)
+}
+
+func run(ctx context.Context) {
+	<-ctx.Done()
+	log.Print("shutting down")
+}
