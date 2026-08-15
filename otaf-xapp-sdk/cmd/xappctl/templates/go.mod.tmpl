@@ -1,0 +1,24 @@
+module {{.Module}}
+
+go 1.23.0
+
+require (
+	github.com/coranlabs/OTAF/otaf-xapp-sdk v1.0.0
+	gerrit.o-ran-sc.org/r/ric-plt/xapp-frame v0.9.22
+)
+
+// The platform's Go modules declare paths their repositories do not serve, so
+// each one has to be pointed at the path that resolves. These apply only in a
+// main module, which is why they live here and not in the SDK.
+require (
+	gerrit.o-ran-sc.org/r/ric-plt/alarm-go.git/alarm v0.5.14
+	gerrit.o-ran-sc.org/r/ric-plt/nodeb-rnib.git/common v1.2.1
+	gerrit.o-ran-sc.org/r/ric-plt/nodeb-rnib.git/entities v1.2.1
+	gerrit.o-ran-sc.org/r/ric-plt/nodeb-rnib.git/reader v1.2.1
+)
+
+replace gerrit.o-ran-sc.org/r/ric-plt/xapp-frame => gerrit.o-ran-sc.org/r/ric-plt/xapp-frame.git v0.9.22
+
+replace gerrit.o-ran-sc.org/r/ric-plt/sdlgo => gerrit.o-ran-sc.org/r/ric-plt/sdlgo.git v0.7.0
+
+replace gerrit.o-ran-sc.org/r/com/golog => gerrit.o-ran-sc.org/r/com/golog.git v0.0.2
