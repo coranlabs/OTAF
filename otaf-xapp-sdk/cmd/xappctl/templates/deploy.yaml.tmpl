@@ -1,0 +1,59 @@
+# The service names are not cosmetic. The routing manager builds routes from
+# names derived from the xApp name, and drops traffic silently if what is
+# running does not answer on them.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  namespace: ricxapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Name}}
+  template:
+    metadata:
+      labels:
+        app: {{.Name}}
+    spec:
+      containers:
+      - name: {{.Name}}
+        image: {{.Name}}:{{.Version}}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: RMR_SRC_ID
+          value: service-ricxapp-{{.Name}}-rmr.ricxapp
+        - name: RMR_RTG_SVC
+          value: "{{.RMRRoutePort}}"
+        - name: APPMGR_ADDR
+          value: service-ricplt-appmgr-http.ricplt:8080
+        ports:
+        - containerPort: {{.HTTPPort}}
+        - containerPort: {{.RMRDataPort}}
+        - containerPort: {{.RMRRoutePort}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-ricxapp-{{.Name}}-rmr
+  namespace: ricxapp
+spec:
+  selector:
+    app: {{.Name}}
+  ports:
+  - name: rmr-data
+    port: {{.RMRDataPort}}
+  - name: rmr-route
+    port: {{.RMRRoutePort}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-ricxapp-{{.Name}}-http
+  namespace: ricxapp
+spec:
+  selector:
+    app: {{.Name}}
+  ports:
+  - name: http
+    port: {{.HTTPPort}}

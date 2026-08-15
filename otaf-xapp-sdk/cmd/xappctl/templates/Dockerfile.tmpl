@@ -1,0 +1,23 @@
+FROM golang:1.23 AS build
+
+ARG RMR=4.9.4
+RUN wget -q --content-disposition "https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr_${RMR}_amd64.deb/download.deb" \
+    && dpkg -i rmr_${RMR}_amd64.deb \
+    && wget -q --content-disposition "https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr-dev_${RMR}_amd64.deb/download.deb" \
+    && dpkg -i rmr-dev_${RMR}_amd64.deb \
+    && rm -f rmr*.deb
+
+WORKDIR /src
+COPY go.mod go.sum* ./
+RUN go mod download
+COPY . .
+RUN go build -o /{{.Name}} ./cmd/{{.Name}}
+
+FROM ubuntu:22.04
+ARG RMR=4.9.4
+RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
+    && wget -q --content-disposition "https://packagecloud.io/o-ran-sc/release/packages/debian/stretch/rmr_${RMR}_amd64.deb/download.deb" \
+    && dpkg -i rmr_${RMR}_amd64.deb && rm -f rmr*.deb \
+    && apt-get purge -y wget && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+COPY --from=build /{{.Name}} /usr/local/bin/{{.Name}}
+ENTRYPOINT ["/usr/local/bin/{{.Name}}"]
