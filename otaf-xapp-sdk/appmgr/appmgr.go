@@ -50,8 +50,18 @@ func (d Descriptor) Validate() error {
 		}
 		seen[p.port] = p.what
 	}
+	if d.RMRRoutePort != RoutePort {
+		return fmt.Errorf("appmgr: rmr route port must be %d: the routing manager opens its "+
+			"connection there whatever the descriptor says, and reports only that the xApp "+
+			"could not be reached", RoutePort)
+	}
 	return nil
 }
+
+// RoutePort is where the routing manager expects to reach an xApp. It is fixed
+// in the platform rather than read from the descriptor, so declaring anything
+// else leaves the xApp registered but unreachable.
+const RoutePort = 4561
 
 // RMREndpoint is the address the routing manager will use to reach this xApp.
 // It is derived from the name, not from where the process runs, and a service

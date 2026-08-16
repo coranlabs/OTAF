@@ -15,8 +15,8 @@ func descriptor() Descriptor {
 		Name:         "otaf-probe",
 		Version:      "1.0.0",
 		HTTPPort:     8098,
-		RMRDataPort:  4570,
-		RMRRoutePort: 4571,
+		RMRDataPort:  4560,
+		RMRRoutePort: RoutePort,
 		RxMessages:   []string{"RIC_INDICATION"},
 		TxMessages:   []string{"RIC_SUB_REQ"},
 	}
@@ -57,7 +57,7 @@ func TestConfigIsSentAsAString(t *testing.T) {
 
 func TestEndpointsFollowTheNamingConvention(t *testing.T) {
 	d := descriptor()
-	if got, want := d.RMREndpoint(), "service-ricxapp-otaf-probe-rmr.ricxapp:4570"; got != want {
+	if got, want := d.RMREndpoint(), "service-ricxapp-otaf-probe-rmr.ricxapp:4560"; got != want {
 		t.Errorf("rmr = %q, want %q", got, want)
 	}
 	if got, want := d.HTTPEndpoint(), "service-ricxapp-otaf-probe-http.ricxapp:8098"; got != want {
@@ -67,13 +67,14 @@ func TestEndpointsFollowTheNamingConvention(t *testing.T) {
 
 func TestValidateRejectsBadDescriptors(t *testing.T) {
 	cases := map[string]func(*Descriptor){
-		"empty name":     func(d *Descriptor) { d.Name = "" },
-		"upper case":     func(d *Descriptor) { d.Name = "Otaf" },
-		"trailing dash":  func(d *Descriptor) { d.Name = "otaf-" },
-		"short version":  func(d *Descriptor) { d.Version = "1.0" },
-		"port zero":      func(d *Descriptor) { d.HTTPPort = 0 },
-		"port too large": func(d *Descriptor) { d.RMRDataPort = 70000 },
-		"shared port":    func(d *Descriptor) { d.RMRRoutePort = d.RMRDataPort },
+		"empty name":       func(d *Descriptor) { d.Name = "" },
+		"upper case":       func(d *Descriptor) { d.Name = "Otaf" },
+		"trailing dash":    func(d *Descriptor) { d.Name = "otaf-" },
+		"short version":    func(d *Descriptor) { d.Version = "1.0" },
+		"port zero":        func(d *Descriptor) { d.HTTPPort = 0 },
+		"port too large":   func(d *Descriptor) { d.RMRDataPort = 70000 },
+		"shared port":      func(d *Descriptor) { d.RMRDataPort = RoutePort },
+		"wrong route port": func(d *Descriptor) { d.RMRRoutePort = 4571 },
 	}
 	for name, mangle := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -68,7 +68,7 @@ func newXapp(args []string) error {
 		Version:      "1.0.0",
 		HTTPPort:     8080,
 		RMRDataPort:  4560,
-		RMRRoutePort: 4561,
+		RMRRoutePort: appmgr.RoutePort,
 	}
 	if s.Module == "" {
 		s.Module = name
