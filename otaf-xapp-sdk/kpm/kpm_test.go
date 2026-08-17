@@ -118,3 +118,12 @@ func TestDecodeRejectsBadInput(t *testing.T) {
 		})
 	}
 }
+
+func hexBytes(t *testing.T, s string) []byte {
+	t.Helper()
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
