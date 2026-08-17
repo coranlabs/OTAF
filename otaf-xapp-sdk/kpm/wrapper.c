@@ -1094,3 +1094,70 @@ unsigned long e2sm_etd_reporting_period(E2SM_KPM_EventTriggerDefinition_t* etd) 
 	}
 	return etd->eventDefinition_formats.choice.eventDefinition_Format1->reportingPeriod;
 }
+
+static E2SM_KPM_IndicationMessage_Format1_t* im_f1(E2SM_KPM_IndicationMessage_t* im) {
+	if (im->indicationMessage_formats.present !=
+	    E2SM_KPM_IndicationMessage__indicationMessage_formats_PR_indicationMessage_Format1) {
+		return NULL;
+	}
+	return im->indicationMessage_formats.choice.indicationMessage_Format1;
+}
+
+int e2sm_im_format(E2SM_KPM_IndicationMessage_t* im) {
+	switch (im->indicationMessage_formats.present) {
+	case E2SM_KPM_IndicationMessage__indicationMessage_formats_PR_indicationMessage_Format1: return 1;
+	case E2SM_KPM_IndicationMessage__indicationMessage_formats_PR_indicationMessage_Format2: return 2;
+	default: return 0;
+	}
+}
+
+int e2sm_im_name_count(E2SM_KPM_IndicationMessage_t* im) {
+	E2SM_KPM_IndicationMessage_Format1_t* f = im_f1(im);
+	return (f && f->measInfoList) ? f->measInfoList->list.count : 0;
+}
+
+MeasurementInfoItem_t* e2sm_im_name(E2SM_KPM_IndicationMessage_t* im, int i) {
+	return im_f1(im)->measInfoList->list.array[i];
+}
+
+int e2sm_im_row_count(E2SM_KPM_IndicationMessage_t* im) {
+	E2SM_KPM_IndicationMessage_Format1_t* f = im_f1(im);
+	return f ? f->measData.list.count : 0;
+}
+
+int e2sm_im_value_count(E2SM_KPM_IndicationMessage_t* im, int row) {
+	return im_f1(im)->measData.list.array[row]->measRecord.list.count;
+}
+
+MeasurementRecordItem_t* e2sm_im_value(E2SM_KPM_IndicationMessage_t* im, int row, int i) {
+	return im_f1(im)->measData.list.array[row]->measRecord.list.array[i];
+}
+
+long e2sm_im_period(E2SM_KPM_IndicationMessage_t* im) {
+	E2SM_KPM_IndicationMessage_Format1_t* f = im_f1(im);
+	return (f && f->granulPeriod) ? *f->granulPeriod : 0;
+}
+
+const char* e2sm_mi_name(MeasurementInfoItem_t* mi, size_t* len) {
+	if (mi->measType.present != MeasurementType_PR_measName) {
+		*len = 0;
+		return NULL;
+	}
+	*len = mi->measType.choice.measName.size;
+	return (const char*)mi->measType.choice.measName.buf;
+}
+
+long e2sm_mi_id(MeasurementInfoItem_t* mi) {
+	return (mi->measType.present == MeasurementType_PR_measID) ? mi->measType.choice.measID : -1;
+}
+
+int e2sm_rec_kind(MeasurementRecordItem_t* r) {
+	switch (r->present) {
+	case MeasurementRecordItem_PR_integer: return 1;
+	case MeasurementRecordItem_PR_real:    return 2;
+	default:                               return 0;
+	}
+}
+
+unsigned long e2sm_rec_integer(MeasurementRecordItem_t* r) { return r->choice.integer; }
+double e2sm_rec_real(MeasurementRecordItem_t* r) { return r->choice.real; }

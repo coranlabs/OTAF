@@ -2,6 +2,10 @@
 #define	_WRAPPER_H_
 
 #include <E2SM-KPM-RANfunction-Description.h>
+#include <E2SM-KPM-IndicationMessage-Format1.h>
+#include <MeasurementDataItem.h>
+#include <MeasurementRecordItem.h>
+#include <MeasurementInfoItem.h>
 #include <RIC-ReportStyle-Item.h>
 #include <MeasurementInfo-Action-Item.h>
 #include <RANfunction-Name.h>
@@ -161,5 +165,20 @@ int  e2sm_ad_format(E2SM_KPM_ActionDefinition_t* ad);
 E2SM_KPM_EventTriggerDefinition_t* e2sm_decode_ric_event_trigger_definition(void *buffer, size_t buf_size);
 void e2sm_free_ric_event_trigger_definition(E2SM_KPM_EventTriggerDefinition_t* etd);
 unsigned long e2sm_etd_reporting_period(E2SM_KPM_EventTriggerDefinition_t* etd);
+
+
+/* Indication message: what a RAN reported for one interval. */
+int    e2sm_im_format(E2SM_KPM_IndicationMessage_t* im);
+int    e2sm_im_name_count(E2SM_KPM_IndicationMessage_t* im);
+MeasurementInfoItem_t* e2sm_im_name(E2SM_KPM_IndicationMessage_t* im, int i);
+int    e2sm_im_row_count(E2SM_KPM_IndicationMessage_t* im);
+int    e2sm_im_value_count(E2SM_KPM_IndicationMessage_t* im, int row);
+MeasurementRecordItem_t* e2sm_im_value(E2SM_KPM_IndicationMessage_t* im, int row, int i);
+long   e2sm_im_period(E2SM_KPM_IndicationMessage_t* im);
+const char* e2sm_mi_name(MeasurementInfoItem_t* mi, size_t* len);
+long   e2sm_mi_id(MeasurementInfoItem_t* mi);
+int    e2sm_rec_kind(MeasurementRecordItem_t* r);
+unsigned long e2sm_rec_integer(MeasurementRecordItem_t* r);
+double e2sm_rec_real(MeasurementRecordItem_t* r);
 
 #endif /* _WRAPPER_H_ */
