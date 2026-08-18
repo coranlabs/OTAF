@@ -1,0 +1,204 @@
+#ifndef	_WRAPPER_H_
+#define	_WRAPPER_H_
+
+#include <E2SM-KPM-RANfunction-Description.h>
+#include <E2SM-KPM-IndicationMessage-Format1.h>
+#include <MeasurementDataItem.h>
+#include <MeasurementRecordItem.h>
+#include <MeasurementInfoItem.h>
+#include <RIC-ReportStyle-Item.h>
+#include <MeasurementInfo-Action-Item.h>
+#include <RANfunction-Name.h>
+#include <E2SM-KPM-EventTriggerDefinition.h>
+#include <E2SM-KPM-EventTriggerDefinition-Format1.h>
+#include <E2SM-KPM-ActionDefinition.h>
+#include <E2SM-KPM-ActionDefinition-Format1.h>
+#include <MeasurementInfoList.h>
+#include <GranularityPeriod.h>
+#include <MeasurementInfoItem.h>
+#include <MeasurementType.h>
+#include <MeasurementTypeID.h>
+#include <LabelInfoItem.h>
+#include <LabelInfoList.h>
+#include <MeasurementLabel.h>
+#include <CGI.h>
+#include <PLMNIdentity.h>
+#include <E2SM-KPM-IndicationHeader.h>
+#include <E2SM-KPM-IndicationHeader-Format1.h>
+//#include <GlobalNGRANNodeID.h>
+#include <GlobalNGRANNodeID.h>
+#include <E2SM-COMMON-IEs_GlobalGNB-ID.h>
+#include <E2SM-COMMON-IEs_GlobalenGNB-ID.h>
+#include <E2SM-COMMON-IEs_GlobalNgENB-ID.h>
+#include <E2SM-COMMON-IEs_GlobalENB-ID.h>
+#include <PLMNIdentity.h>
+#include <GNB-ID.h>
+#include <E2SM-COMMON-IEs_GNB-CU-UP-ID.h>
+#include <E2SM-COMMON-IEs_GNB-DU-ID.h>
+#include <EN-GNB-ID.h>
+#include <E2SM-COMMON-IEs_ENB-ID.h>
+#include <NR-CGI.h>
+#include <S-NSSAI.h>
+#include <E2SM-KPM-IndicationMessage.h>
+#include <E2SM-KPM-IndicationMessage-Format1.h>
+#include <E2SM-KPM-IndicationMessage-Format2.h>
+#include<MeasurementDataItem.h>
+#include<MeasurementRecordItem.h>
+#include <TimeStamp.h>
+
+
+#include <stdio.h>
+#include "asn_application.h"
+#include <E2SM-KPM-EventTriggerDefinition.h>
+#include <E2SM-KPM-EventTriggerDefinition-Format1.h>
+#include <E2SM-KPM-ActionDefinition.h>
+#include <E2SM-KPM-ActionDefinition-Format1.h>
+#include <E2SM-KPM-ActionDefinition-Format3.h>
+#include <MeasurementInfoList.h>
+#include <GranularityPeriod.h>
+#include <MeasurementInfoItem.h>
+#include <MeasurementType.h>
+#include<MeasurementCondList.h>
+#include<MeasurementCondItem.h>
+#include<MatchingCondItem.h>
+#include<E2SM-KPM-RANfunction-Description.h>
+#include<RIC-ReportStyle-Item.h>
+#include<MeasurementInfo-Action-Item.h>
+
+#include <MeasurementTypeID.h>
+#include <LabelInfoItem.h>
+#include <LabelInfoList.h>
+#include <MeasurementLabel.h>
+#include <CGI.h>
+#include <PLMNIdentity.h>
+#include <E2SM-KPM-IndicationHeader.h>
+#include <E2SM-KPM-IndicationHeader-Format1.h>
+//#include <GlobalNGRANNodeID.h>
+#include <E2SM-COMMON-IEs_GlobalGNB-ID.h>
+#include <E2SM-COMMON-IEs_GlobalenGNB-ID.h>
+#include <E2SM-COMMON-IEs_GlobalNgENB-ID.h>
+#include <E2SM-COMMON-IEs_GlobalENB-ID.h>
+#include <PLMNIdentity.h>
+#include <GNB-ID.h>
+#include <E2SM-COMMON-IEs_GNB-CU-UP-ID.h>
+#include <E2SM-COMMON-IEs_GNB-DU-ID.h>
+#include <EN-GNB-ID.h>
+#include <E2SM-COMMON-IEs_ENB-ID.h>
+#include <NR-CGI.h>
+#include <S-NSSAI.h>
+#include <E2SM-KPM-IndicationMessage.h>
+#include <E2SM-KPM-IndicationMessage-Format1.h>
+#include <E2SM-KPM-IndicationMessage-Format2.h>
+#include <TimeStamp.h>
+#include<per_encoder.h>
+#include <errno.h>
+
+/*
+typedef struct Plm {
+	uint8_t *plms;
+	int size;
+} Plm;
+
+
+typedef struct Nrc {
+	uint8_t *nRcs;
+	int size;
+	int bits_unused;
+} Nrc;
+
+*/
+typedef struct encode_act_Def_result{
+	int * array;
+	int length;
+} encode_act_Def_result_t;
+
+typedef struct ranCellUeKpi{
+        char ** ueKpi;
+        char ** cellKpi;
+	int ueKpiSize;
+	int cellKpiSize;
+} ranCellUeKpi_t;
+
+ssize_t e2sm_encode_ric_event_trigger_definition(void *buffer, size_t buf_size, size_t event_trigger_count, long *RT_periods);
+
+//ssize_t e2sm_encode_ric_action_definition(void *buffer, size_t buf_size, long action_Def_count, long meas_ID, long ric_style_type, long GR_periods, Plm plm, Nrc nRc);
+//
+
+ranCellUeKpi_t buildRanCellUeKpi(const char *hex_values);
+
+void freeMemorydRanCellUeKpi(ranCellUeKpi_t res);
+
+struct encode_act_Def_result encode_action_Definition(const char *hex_values, int determine);
+
+ssize_t e2sm_encode_ric_action_definition_format1_by_name(unsigned char *buf, size_t *buf_size, const char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
+
+ssize_t e2sm_encode_ric_action_definition_format1_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod, unsigned char  *p, unsigned char *nR);
+
+ssize_t e2sm_encode_ric_action_definition_format3_by_name(unsigned char *buf, size_t *buf_size, char **id_tmp , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
+
+ssize_t e2sm_encode_ric_action_definition_format3_by_id(unsigned char *buf, size_t *buf_size, long *id , size_t measIdcount, long ric_style_type, unsigned long granulPeriod);
+
+E2SM_KPM_IndicationHeader_t* e2sm_decode_ric_indication_header(void *buffer, size_t buf_size);
+void e2sm_free_ric_indication_header(E2SM_KPM_IndicationHeader_t* indHdr);
+E2SM_KPM_IndicationMessage_t* e2sm_decode_ric_indication_message(void *buffer, size_t buf_size);
+void e2sm_free_ric_indication_message(E2SM_KPM_IndicationMessage_t* indMsg);
+
+
+/* RAN function description: what a RAN advertises it can report. */
+E2SM_KPM_RANfunction_Description_t* e2sm_decode_ran_function_description(void *buffer, size_t buf_size);
+void e2sm_free_ran_function_description(E2SM_KPM_RANfunction_Description_t* rfd);
+int  e2sm_rfd_report_style_count(E2SM_KPM_RANfunction_Description_t* rfd);
+RIC_ReportStyle_Item_t* e2sm_rfd_report_style(E2SM_KPM_RANfunction_Description_t* rfd, int i);
+int  e2sm_style_meas_count(RIC_ReportStyle_Item_t* s);
+MeasurementInfo_Action_Item_t* e2sm_style_meas(RIC_ReportStyle_Item_t* s, int i);
+long e2sm_meas_id(MeasurementInfo_Action_Item_t* m);
+
+
+/* Action definition: read back what an encoded subscription asks for. */
+E2SM_KPM_ActionDefinition_t* e2sm_decode_ric_action_definition(void *buffer, size_t buf_size);
+void e2sm_free_ric_action_definition(E2SM_KPM_ActionDefinition_t* ad);
+long e2sm_ad_style_type(E2SM_KPM_ActionDefinition_t* ad);
+int  e2sm_ad_format(E2SM_KPM_ActionDefinition_t* ad);
+
+
+/* Event trigger: read back an encoded trigger to check its reporting period. */
+E2SM_KPM_EventTriggerDefinition_t* e2sm_decode_ric_event_trigger_definition(void *buffer, size_t buf_size);
+void e2sm_free_ric_event_trigger_definition(E2SM_KPM_EventTriggerDefinition_t* etd);
+unsigned long e2sm_etd_reporting_period(E2SM_KPM_EventTriggerDefinition_t* etd);
+
+
+/* Indication message: what a RAN reported for one interval. */
+int    e2sm_im_format(E2SM_KPM_IndicationMessage_t* im);
+int    e2sm_im_name_count(E2SM_KPM_IndicationMessage_t* im);
+MeasurementInfoItem_t* e2sm_im_name(E2SM_KPM_IndicationMessage_t* im, int i);
+int    e2sm_im_row_count(E2SM_KPM_IndicationMessage_t* im);
+int    e2sm_im_value_count(E2SM_KPM_IndicationMessage_t* im, int row);
+MeasurementRecordItem_t* e2sm_im_value(E2SM_KPM_IndicationMessage_t* im, int row, int i);
+long   e2sm_im_period(E2SM_KPM_IndicationMessage_t* im);
+const char* e2sm_mi_name(MeasurementInfoItem_t* mi, size_t* len);
+long   e2sm_mi_id(MeasurementInfoItem_t* mi);
+int    e2sm_rec_kind(MeasurementRecordItem_t* r);
+unsigned long e2sm_rec_integer(MeasurementRecordItem_t* r);
+double e2sm_rec_real(MeasurementRecordItem_t* r);
+
+
+#include "E2AP-PDU.h"
+#include "InitiatingMessage.h"
+#include "RICindication.h"
+#include "ProtocolIE-Field.h"
+
+typedef struct e2_indication {
+	long requestor_id;
+	long instance_id;
+	long ran_function_id;
+	long action_id;
+	unsigned char *header;
+	size_t header_size;
+	unsigned char *message;
+	size_t message_size;
+} e2_indication_t;
+
+int  e2ap_decode_indication(const void *buffer, size_t size, e2_indication_t *out);
+void e2ap_free_indication(e2_indication_t *ind);
+
+#endif /* _WRAPPER_H_ */
