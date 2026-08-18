@@ -50,8 +50,9 @@ func main() {
 	}()
 
 	// Subscribe to a RAN and act on what it reports. Start from
-	// kpm.DecodeRANFunction on what the platform holds for an E2 node, then
-	// RANFunction.Subscribe to build the payloads a subscription carries.
+	// e2.DecodeRANFunction on what the platform holds for an E2 node, then
+	// RANFunction.Subscribe to build the payloads a subscription carries, and
+	// e2.DecodeIndication on what arrives back.
 	run(ctx)
 }
 
