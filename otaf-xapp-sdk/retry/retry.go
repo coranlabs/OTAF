@@ -1,0 +1,202 @@
+// Copyright 2025-2026 coRAN LABS Private Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package retry re-attempts work that failed for a reason that might pass.
+// Platform services restart, roll and briefly disappear; an xApp that treats
+// every blip as fatal spends its life restarting.
+package retry
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math/rand/v2"
+	"time"
+)
+
+// Policy describes how many times to try and how long to wait between tries.
+type Policy struct {
+	// Attempts counts the first try, so 1 means no retry at all.
+	Attempts   int
+	Initial    time.Duration
+	Max        time.Duration
+	Multiplier float64
+
+	// Jitter spreads delays by up to this fraction either way, so a fleet of
+	// rApps recovering from the same outage does not retry in lockstep.
+	Jitter float64
+}
+
+// Default suits a call to a platform service over the cluster network.
+func Default() Policy {
+	return Policy{Attempts: 4, Initial: 200 * time.Millisecond, Max: 5 * time.Second, Multiplier: 2, Jitter: 0.3}
+}
+
+// Patient suits something known to be slow to come back, such as a service
+// still starting up.
+func Patient() Policy {
+	return Policy{Attempts: 6, Initial: time.Second, Max: 30 * time.Second, Multiplier: 2, Jitter: 0.3}
+}
+
+// None disables retrying, which is what a non-idempotent call wants.
+func None() Policy { return Policy{Attempts: 1} }
+
+func (p Policy) normalise() Policy {
+	if p.Attempts < 1 {
+		p.Attempts = 1
+	}
+	if p.Initial <= 0 {
+		p.Initial = 100 * time.Millisecond
+	}
+	if p.Multiplier < 1 {
+		p.Multiplier = 2
+	}
+	if p.Max <= 0 {
+		p.Max = 30 * time.Second
+	}
+	if p.Jitter < 0 {
+		p.Jitter = 0
+	}
+	if p.Jitter > 1 {
+		p.Jitter = 1
+	}
+	return p
+}
+
+// Backoff is the delay before the given attempt, counting the first try as 1.
+func (p Policy) Backoff(attempt int) time.Duration {
+	p = p.normalise()
+	if attempt < 1 {
+		attempt = 1
+	}
+
+	delay := float64(p.Initial)
+	for i := 1; i < attempt; i++ {
+		delay *= p.Multiplier
+		if delay >= float64(p.Max) {
+			delay = float64(p.Max)
+			break
+		}
+	}
+
+	if p.Jitter > 0 {
+		spread := delay * p.Jitter
+		delay += (rand.Float64()*2 - 1) * spread
+	}
+	if delay < 0 {
+		delay = 0
+	}
+	return time.Duration(delay)
+}
+
+// A retryable error says for itself whether trying again could help. Errors
+// that say nothing are retried, since a bare network failure usually is worth
+// another go.
+type retryable interface {
+	Retryable() bool
+}
+
+// Retryable reports whether err is worth another attempt.
+func Retryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	var permanent *permanentError
+	if errors.As(err, &permanent) {
+		return false
+	}
+	var r retryable
+	if errors.As(err, &r) {
+		return r.Retryable()
+	}
+	return true
+}
+
+type permanentError struct{ err error }
+
+func (e *permanentError) Error() string { return e.err.Error() }
+func (e *permanentError) Unwrap() error { return e.err }
+
+// Permanent marks an error as not worth retrying, whatever it otherwise says.
+func Permanent(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &permanentError{err: err}
+}
+
+// ExhaustedError reports that every attempt failed. It unwraps to the last
+// failure, so errors.Is and errors.As still reach the real cause.
+type ExhaustedError struct {
+	Attempts int
+	Err      error
+}
+
+func (e *ExhaustedError) Error() string {
+	return fmt.Sprintf("gave up after %d attempt(s): %v", e.Attempts, e.Err)
+}
+
+func (e *ExhaustedError) Unwrap() error { return e.Err }
+
+// Do calls fn until it succeeds, gives a permanent error, runs out of
+// attempts, or the context ends.
+func Do(ctx context.Context, p Policy, fn func(ctx context.Context, attempt int) error) error {
+	p = p.normalise()
+
+	var last error
+	for attempt := 1; attempt <= p.Attempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			if last == nil {
+				return err
+			}
+			return &ExhaustedError{Attempts: attempt - 1, Err: last}
+		}
+
+		last = fn(ctx, attempt)
+		if last == nil {
+			return nil
+		}
+		if !Retryable(last) {
+			return last
+		}
+		if attempt == p.Attempts {
+			break
+		}
+
+		timer := time.NewTimer(p.Backoff(attempt))
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return &ExhaustedError{Attempts: attempt, Err: last}
+		}
+	}
+
+	return &ExhaustedError{Attempts: p.Attempts, Err: last}
+}
+
+// DoValue is Do for work that produces a result.
+func DoValue[T any](ctx context.Context, p Policy, fn func(ctx context.Context, attempt int) (T, error)) (T, error) {
+	var out T
+	err := Do(ctx, p, func(ctx context.Context, attempt int) error {
+		var innerErr error
+		out, innerErr = fn(ctx, attempt)
+		return innerErr
+	})
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return out, nil
+}
