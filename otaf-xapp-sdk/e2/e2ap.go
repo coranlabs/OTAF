@@ -6,12 +6,12 @@ package e2
 import "C"
 
 import (
-	"errors"
+	"github.com/coranlabs/OTAF/otaf-xapp-sdk/errs"
 	"unsafe"
 )
 
 // ErrNotAnIndication is returned when a payload is not a RIC indication.
-var ErrNotAnIndication = errors.New("e2: not a RIC indication")
+var ErrNotAnIndication = errs.New(errs.CategoryData, "E2_NOT_AN_INDICATION", "not a RIC indication")
 
 // Indication is a report a RAN sent. Header and Message are the service model
 // payloads it carries, still encoded: what is in them depends on RANFunctionID.

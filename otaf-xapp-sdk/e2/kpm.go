@@ -10,12 +10,12 @@ package e2
 import "C"
 
 import (
-	"errors"
+	"github.com/coranlabs/OTAF/otaf-xapp-sdk/errs"
 	"unsafe"
 )
 
 // ErrDecode is returned when a payload is not a valid E2SM-KPM structure.
-var ErrDecode = errors.New("kpm: decode failed")
+var ErrDecode = errs.New(errs.CategoryData, "E2_DECODE_FAILED", "decode failed")
 
 // Measurement is one counter a report style can carry. ID is nil when the RAN
 // names its measurements without identifying them.

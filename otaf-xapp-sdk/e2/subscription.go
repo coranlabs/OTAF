@@ -7,8 +7,7 @@ package e2
 import "C"
 
 import (
-	"errors"
-	"fmt"
+	"github.com/coranlabs/OTAF/otaf-xapp-sdk/errs"
 	"time"
 	"unsafe"
 )
@@ -35,7 +34,7 @@ type Request struct {
 }
 
 // ErrEncode is returned when a subscription cannot be encoded.
-var ErrEncode = errors.New("kpm: encode failed")
+var ErrEncode = errs.New(errs.CategoryInternal, "E2_ENCODE_FAILED", "encode failed")
 
 const encodeBuf = 8192
 
@@ -44,17 +43,17 @@ const encodeBuf = 8192
 func (f *RANFunction) Subscribe(req Request) (*Subscription, error) {
 	style, ok := f.Style(req.Style)
 	if !ok {
-		return nil, fmt.Errorf("kpm: RAN does not offer report style %d", req.Style)
+		return nil, errs.Newf(errs.CategoryConfig, "E2_NO_SUCH_STYLE", "RAN does not offer report style %d", req.Style)
 	}
 	if len(req.Measurements) == 0 {
-		return nil, errors.New("kpm: no measurements requested")
+		return nil, errs.New(errs.CategoryConfig, "E2_NO_MEASUREMENTS", "no measurements requested")
 	}
 	if req.Period <= 0 {
-		return nil, errors.New("kpm: reporting period must be positive")
+		return nil, errs.New(errs.CategoryConfig, "E2_BAD_PERIOD", "reporting period must be positive")
 	}
 	for _, name := range req.Measurements {
 		if !style.reports(name) {
-			return nil, fmt.Errorf("kpm: report style %d does not measure %q", style.Type, name)
+			return nil, errs.Newf(errs.CategoryConfig, "E2_NO_SUCH_MEASUREMENT", "report style %d does not measure %q", style.Type, name)
 		}
 	}
 
@@ -68,13 +67,14 @@ func (f *RANFunction) Subscribe(req Request) (*Subscription, error) {
 	switch style.ActionFormat {
 	case 1:
 		if req.Cell == nil {
-			return nil, fmt.Errorf("kpm: report style %d measures a cell, so one must be given", style.Type)
+			return nil, errs.Newf(errs.CategoryConfig, "E2_CELL_REQUIRED", "report style %d measures a cell, so one must be given", style.Type)
 		}
 		action, err = encodeActionFormat1(req.Measurements, style.Type, period, *req.Cell)
 	case 3:
 		action, err = encodeActionFormat3(req.Measurements, style.Type, period)
 	default:
-		return nil, fmt.Errorf("kpm: report style %d needs action definition format %d, which is not supported",
+		return nil, errs.Newf(errs.CategoryConfig, "E2_UNSUPPORTED_FORMAT",
+			"report style %d needs action definition format %d, which is not supported",
 			style.Type, style.ActionFormat)
 	}
 	if err != nil {
