@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/coranlabs/OTAF/otaf-xapp-sdk/errs"
 )
 
 // Descriptor is what an xApp tells the platform about itself.
@@ -32,10 +34,10 @@ var versionRE = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 // Validate reports what the platform would reject, before anything is sent.
 func (d Descriptor) Validate() error {
 	if !nameRE.MatchString(d.Name) {
-		return fmt.Errorf("appmgr: name %q must be lower case letters, digits and dashes", d.Name)
+		return errs.Newf(errs.CategoryConfig, "APPMGR_BAD_NAME", "name %q must be lower case letters, digits and dashes", d.Name)
 	}
 	if !versionRE.MatchString(d.Version) {
-		return fmt.Errorf("appmgr: version %q must be major.minor.patch", d.Version)
+		return errs.Newf(errs.CategoryConfig, "APPMGR_BAD_VERSION", "version %q must be major.minor.patch", d.Version)
 	}
 	seen := map[int]string{}
 	for _, p := range []struct {
@@ -43,17 +45,18 @@ func (d Descriptor) Validate() error {
 		what string
 	}{{d.HTTPPort, "http"}, {d.RMRDataPort, "rmr-data"}, {d.RMRRoutePort, "rmr-route"}} {
 		if p.port < 1 || p.port > 65535 {
-			return fmt.Errorf("appmgr: %s port %d out of range", p.what, p.port)
+			return errs.Newf(errs.CategoryConfig, "APPMGR_BAD_PORT", "%s port %d out of range", p.what, p.port)
 		}
 		if other, dup := seen[p.port]; dup {
-			return fmt.Errorf("appmgr: %s and %s share port %d", other, p.what, p.port)
+			return errs.Newf(errs.CategoryConfig, "APPMGR_BAD_PORT", "%s and %s share port %d", other, p.what, p.port)
 		}
 		seen[p.port] = p.what
 	}
 	if d.RMRRoutePort != RoutePort {
-		return fmt.Errorf("appmgr: rmr route port must be %d: the routing manager opens its "+
-			"connection there whatever the descriptor says, and reports only that the xApp "+
-			"could not be reached", RoutePort)
+		return errs.Newf(errs.CategoryConfig, "APPMGR_BAD_PORT",
+			"rmr route port must be %d: the routing manager opens its connection there "+
+				"whatever the descriptor says, and reports only that the xApp could not "+
+				"be reached", RoutePort)
 	}
 	return nil
 }
@@ -150,7 +153,7 @@ func (c *Client) Register(ctx context.Context, d Descriptor) error {
 	}
 	cfg, err := json.Marshal(d.config())
 	if err != nil {
-		return fmt.Errorf("appmgr: encode descriptor: %w", err)
+		return errs.Wrap(err, errs.CategoryInternal, "APPMGR_ENCODE", "encode descriptor")
 	}
 	body, err := json.Marshal(registerBody{
 		AppName:         d.Name,
@@ -161,7 +164,7 @@ func (c *Client) Register(ctx context.Context, d Descriptor) error {
 		Config:          string(cfg),
 	})
 	if err != nil {
-		return fmt.Errorf("appmgr: encode request: %w", err)
+		return errs.Wrap(err, errs.CategoryInternal, "APPMGR_ENCODE", "encode request")
 	}
 	return c.post(ctx, "/ric/v1/register", body)
 }
@@ -183,12 +186,16 @@ func (c *Client) post(ctx context.Context, path string, body []byte) error {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return fmt.Errorf("appmgr: %s: %w", path, err)
+		return errs.Wrap(err, errs.CategoryPlatform, "APPMGR_UNAVAILABLE", path)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
 	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-	return fmt.Errorf("appmgr: %s: %s: %s", path, resp.Status, strings.TrimSpace(string(detail)))
+	category, code := errs.CategoryPlatform, "APPMGR_UNAVAILABLE"
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		category, code = errs.CategoryConfig, "APPMGR_REJECTED"
+	}
+	return errs.Newf(category, code, "%s: %s: %s", path, resp.Status, strings.TrimSpace(string(detail)))
 }
