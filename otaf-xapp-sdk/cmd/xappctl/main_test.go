@@ -107,3 +107,17 @@ func TestSplitPositional(t *testing.T) {
 		}
 	}
 }
+
+// The subscription manager posts its response to the same name the routing
+// manager routes to, so that service has to carry the http port as well. It is
+// otherwise unreachable and the subscription never completes.
+func TestRMRServiceAlsoServesHTTP(t *testing.T) {
+	manifest := read(t, scaffoldInto(t), "deploy/demo-xapp.yaml")
+	rmr := manifest[strings.Index(manifest, "name: service-ricxapp-demo-xapp-rmr"):]
+	if end := strings.Index(rmr, "\n---"); end > 0 {
+		rmr = rmr[:end]
+	}
+	if !strings.Contains(rmr, "port: 8080") {
+		t.Error("the rmr service does not serve the http port")
+	}
+}

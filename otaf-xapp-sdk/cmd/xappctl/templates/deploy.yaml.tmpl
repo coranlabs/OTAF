@@ -45,6 +45,10 @@ spec:
     port: {{.RMRDataPort}}
   - name: rmr-route
     port: {{.RMRRoutePort}}
+  # The subscription manager builds its callback URL from the same name the
+  # routing manager routes to, so the http port is served here as well.
+  - name: http
+    port: {{.HTTPPort}}
 ---
 apiVersion: v1
 kind: Service
