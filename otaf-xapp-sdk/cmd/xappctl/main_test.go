@@ -121,3 +121,23 @@ func TestRMRServiceAlsoServesHTTP(t *testing.T) {
 		t.Error("the rmr service does not serve the http port")
 	}
 }
+
+// The SDK is not on the module proxy until it is released, so a scaffold has
+// to be able to resolve it from a checkout.
+func TestSDKPathAddsAReplacement(t *testing.T) {
+	dir := t.TempDir()
+	if err := newXapp([]string{"demo-xapp", "-out", dir, "-sdk-path", "/somewhere/otaf-xapp-sdk"}); err != nil {
+		t.Fatal(err)
+	}
+	gomod := read(t, dir, "go.mod")
+	if !strings.Contains(gomod, "replace github.com/coranlabs/OTAF/otaf-xapp-sdk => /somewhere/otaf-xapp-sdk") {
+		t.Error("go.mod does not resolve the SDK from the given path")
+	}
+}
+
+func TestWithoutSDKPathThereIsNoReplacement(t *testing.T) {
+	gomod := read(t, scaffoldInto(t), "go.mod")
+	if strings.Contains(gomod, "replace github.com/coranlabs/OTAF/otaf-xapp-sdk") {
+		t.Error("go.mod replaces the SDK when it was not asked to")
+	}
+}

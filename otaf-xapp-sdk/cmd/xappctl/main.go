@@ -18,6 +18,7 @@ var templates embed.FS
 type scaffold struct {
 	Name         string
 	Module       string
+	SDKReplace   string
 	Version      string
 	HTTPPort     int
 	RMRDataPort  int
@@ -44,8 +45,9 @@ func main() {
 func usage() {
 	fmt.Fprint(os.Stderr, `usage: xappctl new <name> [flags]
 
-  -out     directory to write to (default: the name)
-  -module  Go module path (default: the name)
+  -out       directory to write to (default: the name)
+  -module    Go module path (default: the name)
+  -sdk-path  resolve the SDK from a local checkout instead of the module proxy
 `)
 }
 
@@ -58,6 +60,7 @@ func newXapp(args []string) error {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
 	out := fs.String("out", "", "directory to write to")
 	module := fs.String("module", "", "Go module path")
+	sdkPath := fs.String("sdk-path", "", "resolve the SDK from a local checkout instead of the module proxy")
 	if err := fs.Parse(rest); err != nil {
 		return err
 	}
@@ -65,6 +68,7 @@ func newXapp(args []string) error {
 	s := scaffold{
 		Name:         name,
 		Module:       *module,
+		SDKReplace:   *sdkPath,
 		Version:      "1.0.0",
 		HTTPPort:     8080,
 		RMRDataPort:  4560,
