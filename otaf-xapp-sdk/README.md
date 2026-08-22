@@ -60,6 +60,7 @@ rejected by the RAN.
 | `appmgr` | Registration with the xApp manager, and offline validation of the descriptor |
 | `errs` | Failure categories, from which severity, retryability and HTTP status are derived |
 | `retry` | Exponential backoff with jitter, governed by the classification carried by the error |
+| `submgr` | Placing subscriptions with the subscription manager, and withdrawing them |
 | `xapptest` | A stand-in xApp manager and samples captured from a RAN, for testing without a cluster |
 
 All packages are optional; an xApp imports only those it requires.
@@ -81,6 +82,13 @@ xappctl new <name>            create a new xApp repository
 | Descriptor encoding | The descriptor is sent as a string holding JSON, because the platform decodes that field a second time. Sent as an object it is rejected |
 | Report styles | Only styles whose action definition format is 1 or 3 can be built. The rest are refused by name rather than encoded into something the RAN would reject |
 | Measurement identifiers | Optional, and a CU-CP omits them. A measurement is matched by name |
+
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [Writing an xApp](docs/guide.md) | Registration, discovery, subscribing, decoding, failure handling, testing |
+| [Deploying an xApp](docs/deployment.md) | Names, ports, building, and removing one |
 
 ## Requirements
 
