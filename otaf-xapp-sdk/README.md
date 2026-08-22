@@ -94,7 +94,8 @@ xappctl new <name>            create a new xApp repository
 
 Go 1.23 or newer, and a C compiler: the E2AP and E2SM-KPM codec is compiled as
 part of the package, so there is nothing to install and nothing to link
-against.
+against. It is vendored from the O-RAN Software Community, with its licences
+and the changes made to it recorded in `e2/NOTICE`.
 
 A generated xApp additionally uses the O-RAN SC xApp frame for RMR, which
 requires the RMR library at build and run time. The generated Dockerfile
