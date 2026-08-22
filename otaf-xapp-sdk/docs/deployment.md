@@ -7,6 +7,21 @@ manager about it. Deploying without registering leaves an xApp that runs and
 receives nothing; registering without deploying leaves a route to an address
 that does not answer.
 
+```bash
+kubectl apply -f deploy/my-xapp.yaml
+```
+
+A generated xApp registers itself on startup and deregisters when it stops, so
+the second step usually needs nothing from you. Doing it by hand is the same
+call, and useful when something is not working:
+
+```bash
+APPMGR=$(kubectl -n ricplt get svc service-ricplt-appmgr-http \
+    -o jsonpath='{.spec.clusterIP}')
+
+curl -sS "http://$APPMGR:8080/ric/v1/xapps"
+```
+
 There is a second path, where the platform installs the workload itself from a
 chart. It needs a chart repository, an onboarder and a Helm installation behind
 the xApp manager, and it is not required. Registration alone is what makes the
@@ -25,7 +40,24 @@ the HTTP port on a service of its own and the subscription is placed, accepted,
 and then never completed, because the answer has nowhere to go.
 
 The messaging library also has to announce itself under that same name. Where
-it announces something else, sends are dropped and nothing reports it.
+it announces something else, sends are dropped and nothing reports it. The
+generated deployment sets it:
+
+```yaml
+env:
+  - name: RMR_SRC_ID
+    value: service-ricxapp-my-xapp-rmr.ricxapp
+```
+
+Whether the routing manager has accepted an xApp is worth checking directly. An
+empty list here is why a subscription is refused:
+
+```bash
+RTMGR=$(kubectl -n ricplt get svc service-ricplt-rtmgr-http \
+    -o jsonpath='{.spec.clusterIP}')
+
+curl -sS "http://$RTMGR:3800/ric/v1/getdebuginfo"
+```
 
 ## Ports
 
@@ -59,3 +91,11 @@ effect only in an application, which is why they are not in the SDK.
 Undo both steps. Deregister, then delete the workload. An xApp left registered
 after its workload is gone keeps a route pointing at nothing, and the next
 subscription placed against that name is accepted and then silently unanswered.
+
+```bash
+curl -sS -X POST "http://$APPMGR:8080/ric/v1/deregister" \
+    -H 'Content-Type: application/json' \
+    -d '{"appName":"my-xapp","appInstanceName":"my-xapp"}'
+
+kubectl delete -f deploy/my-xapp.yaml
+```

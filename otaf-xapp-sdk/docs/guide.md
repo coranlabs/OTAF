@@ -19,6 +19,11 @@ and a subscription placed by one is refused inside the RIC before the RAN ever
 hears about it. The failure is reported as a routing problem, which is some
 distance from its cause.
 
+```bash
+xappctl new my-xapp
+cd my-xapp && go mod tidy
+```
+
 Registration is also where the endpoint names are settled. They are derived
 from the xApp's name rather than from where the process happens to listen, and
 whatever runs the xApp has to answer on them. The descriptor's endpoint methods
