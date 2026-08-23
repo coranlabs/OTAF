@@ -18,6 +18,10 @@ expose the endpoints the platform probes, take data in, decide something,
 publish the result, and ship it as a package the platform can onboard. Only the
 deciding is yours. OTAF supplies the rest.
 
+<p align="center">
+  <img src="docs/img/otaf-high-level.png" alt="OTAF at a glance" width="760">
+</p>
+
 ## The three SDKs
 
 | SDK | Application | Runs in | Timescale | Status |
@@ -32,6 +36,10 @@ Each SDK is an independent Go module, versioned and released on its own.
 
 [What OTAF is and how it works](docs/) — the architecture, the layers, and how
 the three application types divide the problem.
+
+<p align="center">
+  <img src="docs/img/otaf-architecture.png" alt="OTAF architecture" width="860">
+</p>
 
 Each SDK carries its own documentation for using it.
 
